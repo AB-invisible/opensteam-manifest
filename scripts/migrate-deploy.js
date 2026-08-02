@@ -50,6 +50,42 @@ const MIGRATION_CHECKS = [
     name: '20260629120000_hosted_bot_consoles',
     check: (prisma) => tableExists(prisma, 'hosted_bot_logs'),
   },
+  {
+    name: '20260623130000_giveaways',
+    check: (prisma) => tableExists(prisma, 'giveaways'),
+  },
+  {
+    name: '20260623140000_giveaway_description',
+    check: (prisma) => columnExists(prisma, 'giveaways', 'description'),
+  },
+  {
+    name: '20260629130000_promotional_tests',
+    check: (prisma) => tableExists(prisma, 'discord_role_tenure'),
+  },
+  {
+    name: '20260702120000_executive_officer_exam',
+    check: (prisma) => columnExists(prisma, 'trial_tests', 'typingMetrics'),
+  },
+  {
+    name: '20260703140000_verification_blacklists',
+    check: (prisma) => tableExists(prisma, 'verification_friend_blacklist'),
+  },
+  {
+    name: '20260708180000_user_anti_phishing_code',
+    check: (prisma) => columnExists(prisma, 'users', 'antiPhishingCode'),
+  },
+  {
+    name: '20260712180000_steam_account_shop',
+    check: (prisma) => tableExists(prisma, 'steam_account_orders'),
+  },
+  {
+    name: '20260714120000_rename_whop_payment_id_to_pandabase_order_id',
+    check: (prisma) => columnExists(prisma, 'steam_account_orders', 'pandabaseOrderId'),
+  },
+  {
+    name: '20260726200000_discord_leave_suspension',
+    check: (prisma) => columnExists(prisma, 'users', 'discordMemberStatus'),
+  },
 ];
 
 function runPrisma(args) {
@@ -202,10 +238,21 @@ async function main() {
   }
 
   console.log('[migrate] Running prisma migrate deploy...');
-  let { code, output } = runPrisma(['migrate', 'deploy']);
-  console.log(output);
+  let attempts = 0;
+  while (attempts < 20) {
+    attempts += 1;
+    let { code, output } = runPrisma(['migrate', 'deploy']);
+    console.log(output);
 
-  if (code !== 0 && (output.includes('P3005') || output.includes('P3009'))) {
+    if (code === 0) {
+      console.log('[migrate] Database migrations are up to date.');
+      return;
+    }
+
+    if (!(output.includes('P3005') || output.includes('P3009') || output.includes('P3018'))) {
+      process.exit(code);
+    }
+
     console.log('[migrate] Migration deploy blocked — retrying recovery then deploy...');
     const prismaRetry = new PrismaClient();
     try {
@@ -213,22 +260,16 @@ async function main() {
       if (output.includes('P3005')) {
         await baselineExistingDatabase(prismaRetry);
       }
-      if (output.includes('P3009')) {
+      if (output.includes('P3009') || output.includes('P3018')) {
         await recoverFailedMigrations(prismaRetry);
       }
     } finally {
       await prismaRetry.$disconnect();
     }
-
-    ({ code, output } = runPrisma(['migrate', 'deploy']));
-    console.log(output);
   }
 
-  if (code !== 0) {
-    process.exit(code);
-  }
-
-  console.log('[migrate] Database migrations are up to date.');
+  console.error('[migrate] Gave up after repeated migration recovery attempts.');
+  process.exit(1);
 }
 
 main().catch((err) => {
