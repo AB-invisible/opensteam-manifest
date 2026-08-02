@@ -519,10 +519,13 @@ async function handleHostedInteraction(interaction, prisma, botS3Client, options
         await interaction.editReply({ embeds: [embed] });
 
         if (zipBuffer) {
+          // Clean cached zips that may predate the upload-time cleaner
+          const { cleanManifestZip } = require('./clean-manifest');
+          const cleanedZipBuffer = await cleanManifestZip(zipBuffer);
           const delivery = await sendGenZipToRequester(interaction, {
             gameName: resolvedName,
             appId,
-            zipBuffer,
+            zipBuffer: cleanedZipBuffer,
             sourceLabel: 'Internal Cloud',
           });
           if (!delivery.sent) {

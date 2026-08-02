@@ -38,7 +38,7 @@ const BANNED_FRAGMENTS = [
   'shared depots:',
 ]
 
-const RE_FUNC_CALL = /^(addappid|setManifestid)\s*\(/
+const RE_FUNC_CALL = /^(addappid|setManifestid)\s*\(/i
 
 function cleanLua(raw: string): string | null {
   const cleanedLines: string[] = []
@@ -62,9 +62,12 @@ function cleanLua(raw: string): string | null {
         }
       }
     }
-    cleanedLines.push(stripped.slice(0, cutAt))
+    let cleaned = stripped.slice(0, cutAt)
+    // Normalize function name to canonical casing
+    cleaned = cleaned.replace(/^addappid/i, 'addappid').replace(/^setmanifestid/i, 'setManifestid')
+    cleanedLines.push(cleaned)
   }
-  if (!cleanedLines.length || !cleanedLines.some(l => l.startsWith('addappid('))) {
+  if (!cleanedLines.length || !cleanedLines.some(l => /^addappid\(/i.test(l))) {
     return null
   }
   return buildCredit() + cleanedLines.join('\n') + '\n'

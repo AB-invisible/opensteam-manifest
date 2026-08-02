@@ -4418,6 +4418,8 @@ async function startBot() {
           }
 
           if (zipBuffer) {
+            // Clean cached zips that may predate the upload-time cleaner
+            const cleanedZipBuffer = await cleanManifestZip(zipBuffer);
             let description = gameInfo?.short_description || `**${gameName}** is already available in our high-speed storage.`;
             description += '\n\n📩 _Your ZIP will arrive in a **separate private message** only you can see._';
 
@@ -4444,7 +4446,7 @@ async function startBot() {
             const zipDelivery = await sendGenZipToRequester(interaction, {
               gameName,
               appId,
-              zipBuffer,
+              zipBuffer: cleanedZipBuffer,
               sourceLabel: 'Internal Cloud',
             });
 
