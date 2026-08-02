@@ -4,6 +4,8 @@ import { verifyBearerSecret } from '@/app/lib/bearer-auth'
 import { getRuntimeSecret, requireRuntimeSecretInProduction } from '@/app/lib/runtime-secrets'
 import { prisma } from '@/app/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
   const cronSecret = await getRuntimeSecret('CRON_SECRET')
 

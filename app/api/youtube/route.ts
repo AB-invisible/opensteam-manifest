@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/app/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 /** maxresdefault.jpg is missing for many videos; hqdefault always exists. */
 function youtubeThumbnailUrl(videoId: string, stored?: string | null): string {
   const hq = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
