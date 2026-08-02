@@ -215,22 +215,25 @@ export default function Home() {
       {/* Navigation */}
       <nav className="sticky top-0 z-50 glass border-b-white/5 border-t-0 border-x-0 rounded-none w-full">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <a href={site.siteUrl} className="flex items-center space-x-3 group" target="_blank" rel="noopener noreferrer">
-            <div className="group-hover:scale-110 transition-transform">
-              <img src={site.logoPath} alt={site.siteName} className="h-9 w-9 rounded-full ring-1 ring-cyan-400/30" />
-            </div>
+          <div className="flex items-center space-x-3">
+            <a href="/" className="flex items-center space-x-3 group">
+              <div className="group-hover:scale-110 transition-transform">
+                <img src={site.logoPath} alt={site.siteName} className="h-9 w-9 rounded-full ring-1 ring-cyan-400/30" />
+              </div>
+            </a>
             <div className="flex flex-col -space-y-1">
-              <span className="text-xl font-bold tracking-tight text-white hidden sm:block group-hover:text-cyan-300 transition-colors">{site.siteName}</span>
+              <a href="/" className="text-xl font-bold tracking-tight text-white hidden sm:block hover:text-cyan-300 transition-colors">
+                {site.siteName}
+              </a>
               <a
                 href="/incidents"
                 className="text-[8px] font-black uppercase tracking-[0.2em] text-cyan-400 hover:text-amber-400 transition-colors flex items-center space-x-1"
-                onClick={(e) => e.stopPropagation()}
               >
                 <div className="h-1 w-1 bg-current rounded-full animate-pulse" />
                 <span>Live Status: OK</span>
               </a>
             </div>
-          </a>
+          </div>
 
           <div className="flex items-center space-x-4">
             {status === 'loading' ? (
