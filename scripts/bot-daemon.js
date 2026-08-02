@@ -4388,62 +4388,75 @@ async function startBot() {
           const loaded = await loadCachedManifestZip(appId, knownSize, manifestData?.s3Key || s3Key);
           const zipBuffer = loaded.buffer;
           const zipTooLarge = loaded.reason === 'too_large';
-          const zipLoadFailed = loaded.reason === 'load_error' || loaded.reason === 'missing';
 
-          let description = gameInfo?.short_description || `**${gameName}** is already available in our high-speed storage.`;
-          if (zipBuffer) {
-            description += '\n\n📩 _Your ZIP will arrive in a **separate private message** only you can see._';
-          }
+          if (zipTooLarge) {
+            let description = gameInfo?.short_description || `**${gameName}** is already available in our high-speed storage.`;
+            const embed = new EmbedBuilder()
+              .setTitle('✅ Manifest Found (Cached)')
+              .setDescription(description)
+              .setColor(0x10b981)
+              .addFields(
+                { name: 'App ID', value: `\`${appId}\``, inline: true },
+                { name: 'Source', value: 'Internal Cloud', inline: true }
+              );
 
-          const embed = new EmbedBuilder()
-            .setTitle('✅ Manifest Found (Cached)')
-            .setDescription(description)
-            .setColor(0x10b981)
-            .addFields(
-              { name: 'App ID', value: `\`${appId}\``, inline: true },
-              { name: 'Source', value: 'Internal Cloud', inline: true }
+            if (gameInfo) {
+              if (gameInfo.developers?.[0]) embed.addFields({ name: 'Developer', value: gameInfo.developers[0], inline: true });
+              if (gameInfo.publishers?.[0]) embed.addFields({ name: 'Publisher', value: gameInfo.publishers[0], inline: true });
+              if (gameInfo.header_image) embed.setThumbnail(gameInfo.header_image);
+            }
+
+            embed.setTimestamp()
+              .setFooter({ text: `Usage: ${todayCount + 1}/${dailyLimit} • Generated via OpenSteam Cloud` });
+
+            await interaction.editReply({ content: null, embeds: [embed] });
+            await notifyGenZipFailure(
+              interaction,
+              `⚠️ **${gameName}** (\`${appId}\`) is over Discord's ${MAX_GEN_DISCORD_ZIP_LABEL} limit. Sign in at ${getGenAppUrl()} to download it.`
             );
-
-          if (gameInfo) {
-            if (gameInfo.developers?.[0]) embed.addFields({ name: 'Developer', value: gameInfo.developers[0], inline: true });
-            if (gameInfo.publishers?.[0]) embed.addFields({ name: 'Publisher', value: gameInfo.publishers[0], inline: true });
-            if (gameInfo.header_image) embed.setThumbnail(gameInfo.header_image);
+            return;
           }
 
-          embed.setTimestamp()
-            .setFooter({ text: `Usage: ${todayCount + 1}/${dailyLimit} • Generated via OpenSteam Cloud` });
-
-          // Public summary first (no ZIP on this message).
-          await interaction.editReply({ content: null, embeds: [embed] });
-
-          let zipDelivery = { sent: false };
           if (zipBuffer) {
-            zipDelivery = await sendGenZipToRequester(interaction, {
+            let description = gameInfo?.short_description || `**${gameName}** is already available in our high-speed storage.`;
+            description += '\n\n📩 _Your ZIP will arrive in a **separate private message** only you can see._';
+
+            const embed = new EmbedBuilder()
+              .setTitle('✅ Manifest Found (Cached)')
+              .setDescription(description)
+              .setColor(0x10b981)
+              .addFields(
+                { name: 'App ID', value: `\`${appId}\``, inline: true },
+                { name: 'Source', value: 'Internal Cloud', inline: true }
+              );
+
+            if (gameInfo) {
+              if (gameInfo.developers?.[0]) embed.addFields({ name: 'Developer', value: gameInfo.developers[0], inline: true });
+              if (gameInfo.publishers?.[0]) embed.addFields({ name: 'Publisher', value: gameInfo.publishers[0], inline: true });
+              if (gameInfo.header_image) embed.setThumbnail(gameInfo.header_image);
+            }
+
+            embed.setTimestamp()
+              .setFooter({ text: `Usage: ${todayCount + 1}/${dailyLimit} • Generated via OpenSteam Cloud` });
+
+            await interaction.editReply({ content: null, embeds: [embed] });
+
+            const zipDelivery = await sendGenZipToRequester(interaction, {
               gameName,
               appId,
               zipBuffer,
               sourceLabel: 'Internal Cloud',
             });
-          } else if (zipTooLarge) {
-            await notifyGenZipFailure(
-              interaction,
-              `⚠️ **${gameName}** (\`${appId}\`) is over Discord's ${MAX_GEN_DISCORD_ZIP_LABEL} limit. Sign in at ${getGenAppUrl()} to download it.`
-            );
-          } else if (zipLoadFailed) {
-            await notifyGenZipFailure(
-              interaction,
-              `⚠️ **${gameName}** (\`${appId}\`) is saved on our servers but could not be attached here. Sign in at ${getGenAppUrl()} to download it.`
-            );
-          }
 
-          if (zipBuffer && !zipDelivery.sent) {
-            await notifyGenZipFailure(
-              interaction,
-              `⚠️ Could not send your ZIP (${zipDelivery.reason || 'unknown error'}). Enable DMs from server members or download via ${getSiteHostLabel()}.`
-            );
+            if (!zipDelivery.sent) {
+              await notifyGenZipFailure(
+                interaction,
+                `⚠️ Could not send your ZIP (${zipDelivery.reason || 'unknown error'}). Enable DMs from server members or download via ${getSiteHostLabel()}.`
+              );
+            }
+            return;
           }
-
-          return;
+          // If zipBuffer is null (missing on local container disk/S3), fall through to upstream fetch below!
         }
 
         // 4. Fetch upstream, persist to storage, then deliver ZIP + web download instructions

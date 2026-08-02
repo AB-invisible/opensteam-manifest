@@ -531,13 +531,9 @@ async function handleHostedInteraction(interaction, prisma, botS3Client, options
               flags: require('discord.js').MessageFlags.Ephemeral,
             }).catch(() => {});
           }
-        } else {
-          await interaction.followUp({
-            content: `⚠️ **${resolvedName}** (\`${appId}\`) is over Discord's ${MAX_GEN_DISCORD_ZIP_LABEL} limit. Sign in at ${getGenAppUrl()} to download it.`,
-            flags: require('discord.js').MessageFlags.Ephemeral,
-          }).catch(() => {});
+          return;
         }
-        return;
+        // If zipBuffer is null (missing on local container disk/S3), fall through to upstream fetch!
       }
 
       await interaction.editReply(`⏳ **Searching...** Checking upstream providers for \`${appId}\`...`);
