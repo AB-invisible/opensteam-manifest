@@ -1,0 +1,34 @@
+{
+  "name": "opensteam-bot",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "postinstall": "prisma generate",
+    "start": "node scripts/wait-for-db.js && node scripts/bot-daemon.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1008.0",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/api-logs": "^0.217.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.217.0",
+    "@opentelemetry/resources": "^2.7.1",
+    "@opentelemetry/sdk-logs": "^0.217.0",
+    "@opentelemetry/sdk-node": "^0.217.0",
+    "@opentelemetry/semantic-conventions": "^1.40.0",
+    "@prisma/client": "5.7.0",
+    "axios": "^1.6.2",
+    "discord.js": "^14.25.1",
+    "dotenv": "^17.3.1",
+    "form-data": "^4.0.0",
+    "googleapis": "^171.4.0",
+    "groq-sdk": "^1.2.0",
+    "jszip": "^3.10.1",
+    "nodemailer": "^7.0.13",
+    "prisma": "5.7.0",
+    "sharp": "^0.33.1",
+    "uuid": "^9.0.1"
+  }
+}

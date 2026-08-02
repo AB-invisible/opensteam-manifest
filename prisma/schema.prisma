@@ -1,0 +1,1170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  TRIAL_MODERATOR
+  MODERATOR
+  SENIOR_MODERATOR
+  HEAD_MODERATOR
+  EXECUTIVE_OFFICER
+  ADMIN
+  OWNER
+}
+
+enum Plan {
+  FREE
+  REGULAR
+  PREMIUM
+  RESELLER
+  BUSINESS
+  CUSTOM
+}
+
+enum SteamAccountOrderStatus {
+  PAID
+  DELIVERING
+  DELIVERED
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  discordId     String    @unique
+  username      String
+  discriminator String
+  avatar        String?
+  email         String?
+  telegramId    String?   @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  role          Role      @default(USER)
+  plan          Plan      @default(FREE)
+  isBanned      Boolean   @default(false)
+  lastIp        String?
+  lastUserAgent String?
+  fingerprint   String?
+  country       String? // Detect via IP (ISO 3166-1 alpha-2)
+  riskScore     Int       @default(0)
+  jailLevel     Int       @default(0) // 0: None, 1: 1h, 2: 12h, 3: PERM
+  jailUntil     DateTime?
+
+  planExpiry                DateTime?
+  planIsCanceled            Boolean   @default(false)
+  trialStartDate            DateTime? // When trial moderator period started
+  trialWelcomeDmDeliveredAt DateTime? // Last successful trial welcome DM (Discord) — cleared when leaving trial mod role
+
+  // Scheduled moderator trial window end (typically 5 days from Start trial in dashboard).
+  trialModEndsAt DateTime?
+  // When staff released live assessment — candidate opens /dashboard/mod-assessment.
+  modTestReadyAt DateTime?
+
+  // Custom plan overrides
+  customDailyLimit    Int? // Overrides default API daily limit if set
+  customWebDailyLimit Int? // Overrides default web daily limit if set
+  customMinuteLimit   Int? // Overrides default per-minute/rate limit if set
+  customAllowMorrenus Boolean? // Overrides plan-based Morrenus access if set
+  customAllowRyuu     Boolean? // Overrides plan-based Ryuu access if set
+
+  // Command & Sovereignty
+  shadowingId       String? // Target user ID this admin is shadowing (dashboard context)
+  shadowingTarget   User?   @relation("AdminShadowSession", fields: [shadowingId], references: [id], onDelete: SetNull)
+  adminsShadowingMe User[]  @relation("AdminShadowSession")
+  roleLevel         Int     @default(0) // 0: User, 50: Moderator, 100: Admin
+
+  // Webhook integration
+  webhookUrl    String?
+  webhookSecret String?
+
+  // Profile Settings
+  notifyEmail             Boolean   @default(true)
+  notifyDm                Boolean   @default(true)
+  antiPhishingCode        String?   @unique
+  antiPhishingIntroSeenAt DateTime?
+  isSelfSuspended         Boolean   @default(false)
+  deleteAuthCode          String?
+  deleteAuthCodeExpires   DateTime?
+
+  activeOrgId String?
+  parentId    String? // For reseller sub-accounts
+
+  discordAccessToken  String?
+  discordRefreshToken String?
+  lastWebActivityAt   DateTime @default(now())
+
+  webSessionRevokedAt          DateTime?
+  webSessionRevokeReason       String?
+  discordGuildBannedAt         DateTime?
+  webLoginAt                   DateTime?
+  discordVerifiedAt            DateTime?
+  discordMemberStatus          String    @default("active") // "active" | "left"
+  discordLeftAt                DateTime? // Timestamp of last guild leave
+  verifyIp                     String?
+  verifyCountry                String?
+  verifyFingerprint            String?
+  discordAccountCreatedAt      DateTime?
+  discordConnections           Json?
+  discordGuildsSnapshot        Json?
+  discordRelationshipsSnapshot Json?
+  discordGlobalName            String?
+  discordLocale                String?
+  discordPremiumType           Int?
+  discordMfaEnabled            Boolean?
+  discordEmailVerified         Boolean?
+  discordPublicFlags           Int?
+  discordProfileSnapshot       Json?
+
+  parent   User?  @relation("SubAccounts", fields: [parentId], references: [id])
+  children User[] @relation("SubAccounts")
+
+  apiKeys            ApiKey[]
+  manifests          Manifest[]
+  gameRequests       GameRequest[]
+  keyDonations       KeyDonation[]
+  webGenerations     WebGeneration[]
+  auditLogs          AuditLog[]
+  sentinelLogs       SentinelLog[]
+  scripts            ExtensionScript[]
+  profiles           ManifestProfile[]
+  stars              ScriptStar[]
+  memberships        OrgMembership[]
+  ownedOrgs          Organization[]      @relation("OrgOwner")
+  resellerOrgs       Organization[]      @relation("ResellerOrg")
+  vouchers           Voucher[]           @relation("VoucherCreator")
+  redemptions        Voucher[]           @relation("VoucherUser")
+  comments           Comment[]
+  securityBypass     Boolean             @default(false)
+  adminChatMessages  AdminChatMessage[]  @relation("AdminChatMessages")
+  trialTests         TrialTest[]         @relation("TrialModSubject")
+  trialTestsGraded   TrialTest[]         @relation("TrialModAdmin")
+  trialTestsReviewed TrialTest[]         @relation("LiveTrialReviewer")
+  appSessions        AppSession[]
+  supportTickets     SupportTicket[]     @relation("UserTickets")
+  coins              Int                 @default(0)
+  hostedBotInstance  HostedBotInstance?
+  memberMarketOrders MemberMarketOrder[]
+  steamAccountOrders SteamAccountOrder[]
+
+  @@index([fingerprint, role])
+  @@map("users")
+}
+
+model MemberMarketOrder {
+  id              String    @id @default(cuid())
+  vaultOrderId    String    @unique
+  reference       String?
+  marketId        Int
+  amount          Int
+  costCents       Int?
+  inviteCode      String
+  guildId         String?
+  buyerEmail      String
+  status          String    @default("paid")
+  sellerTitle     String?
+  sellerServer    String?
+  inviteUrl       String?
+  orderUrl        String?
+  newBalanceCents Int?
+  pulledAt        DateTime?
+  refundedAt      DateTime?
+  createdById     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([createdById, createdAt])
+  @@index([status, createdAt])
+  @@map("member_market_orders")
+}
+
+enum HostedBotType {
+  BRANDED
+  CUSTOM
+}
+
+enum HostedBotStatus {
+  PENDING
+  SETUP
+  ACTIVE
+  STOPPED
+  LOCKED
+  SUSPENDED
+}
+
+model HostedBotInstance {
+  id            String          @id @default(cuid())
+  userId        String          @unique
+  type          HostedBotType
+  guildId       String?         @unique
+  status        HostedBotStatus @default(PENDING)
+  lockedByOwner Boolean         @default(false)
+  lockedReason  String?
+
+  botClientId  String?
+  botTokenEnc  String?
+  botSecretEnc String?
+
+  inviteUrl     String?
+  lastStartedAt DateTime?
+  lastStoppedAt DateTime?
+  modules       String[]  @default(["gen", "request", "status", "link", "onlinefixes"])
+
+  // Runtime metadata captured by the hosted bot daemons
+  botUsername     String?
+  guildName       String?
+  guildOwnerId    String?
+  guildOwnerName  String?
+  memberCount     Int?
+  connectedAt     DateTime?
+  lastHeartbeatAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  webGenerations WebGeneration[]
+  logs           HostedBotLog[]
+  commands       HostedBotCommand[]
+
+  @@index([type, status])
+  @@map("hosted_bot_instances")
+}
+
+enum HostedBotLogLevel {
+  INFO
+  WARN
+  ERROR
+  EVENT
+}
+
+model HostedBotLog {
+  id         String            @id @default(cuid())
+  instanceId String?
+  scope      HostedBotType?
+  level      HostedBotLogLevel @default(INFO)
+  source     String?
+  message    String            @db.Text
+  createdAt  DateTime          @default(now())
+
+  instance HostedBotInstance? @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([instanceId, createdAt])
+  @@index([scope, createdAt])
+  @@map("hosted_bot_logs")
+}
+
+enum HostedBotCommandType {
+  SEND_MESSAGE
+  RECONNECT
+}
+
+enum HostedBotCommandStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+model HostedBotCommand {
+  id          String                 @id @default(cuid())
+  instanceId  String
+  type        HostedBotCommandType
+  payload     String?                @db.Text
+  status      HostedBotCommandStatus @default(PENDING)
+  result      String?                @db.Text
+  createdById String
+  createdAt   DateTime               @default(now())
+  executedAt  DateTime?
+
+  instance HostedBotInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([instanceId, createdAt])
+  @@map("hosted_bot_commands")
+}
+
+model Giveaway {
+  id                 String    @id @default(cuid())
+  guildId            String
+  channelId          String
+  messageId          String?   @unique
+  statusMessageId    String?
+  createdByDiscordId String
+  createdByUserId    String?
+  prize              String
+  description        String?   @db.Text
+  prizeType          String    @default("CUSTOM")
+  plan               Plan?
+  planDurationDays   Int?
+  winnerCount        Int
+  rewardText         String?   @db.Text
+  separatePrizes     Boolean   @default(false)
+  status             String    @default("ACTIVE")
+  endsAt             DateTime
+  endedAt            DateTime?
+  claimDeadlineAt    DateTime?
+  claimWindowHours   Int       @default(12)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  entries GiveawayEntry[]
+  winners GiveawayWinner[]
+
+  @@index([guildId, channelId])
+  @@index([status, endsAt])
+  @@index([status, claimDeadlineAt])
+  @@map("giveaways")
+}
+
+model GiveawayEntry {
+  id         String   @id @default(cuid())
+  giveawayId String
+  discordId  String
+  username   String
+  createdAt  DateTime @default(now())
+
+  giveaway Giveaway @relation(fields: [giveawayId], references: [id], onDelete: Cascade)
+
+  @@unique([giveawayId, discordId])
+  @@index([discordId])
+  @@map("giveaway_entries")
+}
+
+model GiveawayWinner {
+  id          String    @id @default(cuid())
+  giveawayId  String
+  discordId   String
+  username    String?
+  prizeIndex  Int
+  prizeText   String?   @db.Text
+  status      String    @default("PENDING")
+  selectedAt  DateTime  @default(now())
+  claimedAt   DateTime?
+  rerolledAt  DateTime?
+  dmMessageId String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  giveaway Giveaway @relation(fields: [giveawayId], references: [id], onDelete: Cascade)
+
+  @@unique([giveawayId, discordId])
+  @@index([giveawayId, status])
+  @@index([status, selectedAt])
+  @@map("giveaway_winners")
+}
+
+model SupportTicket {
+  id           String    @id @default(cuid())
+  ticketNumber String    @unique @default(cuid()) // We'll generate a shorter one in code if preferred
+  fromEmail    String
+  fromName     String?
+  subject      String?
+  message      String    @db.Text
+  status       String    @default("OPEN") // OPEN, CLOSED, PENDING
+  userId       String? // Linked user if found
+  resendId     String?   @unique // The Resend Email ID
+  // AI agent first-response
+  aiReply      String?   @db.Text
+  aiRepliedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user    User?                @relation("UserTickets", fields: [userId], references: [id], onDelete: SetNull)
+  replies SupportTicketReply[] @relation("TicketReplies")
+
+  @@index([fromEmail])
+  @@index([status])
+  @@map("support_tickets")
+}
+
+model SupportTicketReply {
+  id         String   @id @default(cuid())
+  ticketId   String
+  senderName String
+  senderRole String?
+  message    String   @db.Text
+  createdAt  DateTime @default(now())
+
+  ticket SupportTicket @relation("TicketReplies", fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("support_ticket_replies")
+}
+
+model AdminChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  username  String
+  avatar    String?
+  content   String   @db.Text
+  role      Role     @default(MODERATOR)
+  createdAt DateTime @default(now())
+
+  user User @relation("AdminChatMessages", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@map("admin_chat_messages")
+}
+
+enum DonationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model KeyDonation {
+  id        String         @id @default(cuid())
+  userId    String
+  gameName  String
+  steamKey  String
+  status    DonationStatus @default(PENDING)
+  notes     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("key_donations")
+}
+
+model Organization {
+  id           String   @id @default(cuid())
+  name         String
+  plan         Plan     @default(FREE)
+  creatorId    String
+  resellerId   String? // If this org is managed by a reseller
+  billingEmail String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner    User            @relation("OrgOwner", fields: [creatorId], references: [id])
+  reseller User?           @relation("ResellerOrg", fields: [resellerId], references: [id])
+  members  OrgMembership[]
+  apiKeys  ApiKey[]
+
+  @@index([creatorId])
+  @@index([resellerId])
+  @@map("organizations")
+}
+
+enum MembershipStatus {
+  PENDING
+  ACCEPTED
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model OrgMembership {
+  id       String           @id @default(cuid())
+  userId   String
+  orgId    String
+  role     OrgRole          @default(MEMBER)
+  status   MembershipStatus @default(PENDING)
+  joinedAt DateTime         @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+  @@map("org_memberships")
+}
+
+model SentinelLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  ip          String?
+  userAgent   String?
+  fingerprint String?
+  action      String // e.g., "RISK_INCREASE", "AUTO_JAIL", "KEY_REVOKE"
+  score       Int
+  reason      String
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("sentinel_logs")
+}
+
+model BlacklistedIp {
+  id        String   @id @default(cuid())
+  ip        String   @unique
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@map("blacklisted_ips")
+}
+
+model VerificationFriendBlacklist {
+  id        String   @id @default(cuid())
+  discordId String   @unique
+  label     String?
+  reason    String
+  addedById String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([discordId])
+  @@map("verification_friend_blacklist")
+}
+
+model VerificationGuildBlacklist {
+  id        String   @id @default(cuid())
+  guildId   String   @unique
+  guildName String?
+  reason    String
+  addedById String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([guildId])
+  @@map("verification_guild_blacklist")
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  key        String    @unique
+  name       String
+  userId     String
+  orgId      String?
+  rateLimit  Int       @default(100) // requests per window
+  rateWindow Int       @default(3600) // window in seconds (default 1 hour)
+  enabled    Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastUsed   DateTime?
+
+  expiresAt            DateTime?
+  lastRotatedAt        DateTime?
+  rotationIntervalDays Int?
+  activationsEnabled   Boolean   @default(true)
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization?   @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  usage        ApiUsage[]
+  audits       KeyAudit[]
+  activations  AppActivation[]
+  appSessions  AppSession[]
+
+  adminDisable     Boolean @default(false)
+  adminForceUpdate Boolean @default(false)
+  suspendedByLeave Boolean @default(false) // true = auto-paused because user left the Discord guild
+  machineId        String?
+  createdVia       String  @default("WEB") // WEB | DISCORD
+
+  @@unique([userId, machineId])
+  @@index([userId])
+  @@index([orgId])
+  @@index([machineId])
+  @@map("api_keys")
+}
+
+model DevicePairing {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  machineId  String
+  os         String?
+  appVersion String?
+  apiKeyId   String?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([machineId])
+  @@index([expiresAt])
+  @@map("device_pairings")
+}
+
+model AppActivation {
+  id                String   @id @default(cuid())
+  apiKeyId          String
+  machineId         String?
+  os                String?
+  version           String?
+  ip                String?
+  isFirstActivation Boolean  @default(false)
+  enabled           Boolean  @default(true)
+  status            String   @default("ACTIVE") // ACTIVE, DISABLED, REVOKED
+  createdAt         DateTime @default(now())
+
+  apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@index([apiKeyId])
+  @@map("app_activations")
+}
+
+model KeyAudit {
+  id        String   @id @default(cuid())
+  apiKeyId  String
+  action    String // e.g., "ROTATED", "CREATED", "REVOKED", "IP_RESTRICTED"
+  details   Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@index([apiKeyId, createdAt])
+  @@map("key_audits")
+}
+
+model Manifest {
+  id          String   @id @default(cuid())
+  steamAppId  String   @unique
+  name        String
+  description String?
+  version     String   @default("1.0.0")
+  fileSize    BigInt? // zip file size in bytes
+  imageUrl    String?
+  tags        String[]
+  downloads   Int      @default(0)
+  userId      String
+  storageType String   @default("local") // "local" or "s3"
+  s3Key       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drops ManifestDrop[]
+
+  @@index([userId])
+  @@map("manifests")
+}
+
+// Tracks which manifests have been "dropped" (posted to Discord).
+// 7-day cooldown enforced via expiresAt. Cleanup cron deletes expired records.
+model ManifestDrop {
+  id         String   @id @default(cuid())
+  manifestId String
+  droppedAt  DateTime @default(now())
+  expiresAt  DateTime // droppedAt + 7 days
+
+  manifest Manifest @relation(fields: [manifestId], references: [id], onDelete: Cascade)
+
+  @@index([manifestId])
+  @@index([expiresAt])
+  @@map("manifest_drops")
+}
+
+model ManifestVersion {
+  id         String   @id @default(cuid())
+  manifestId String
+  name       String?
+  steamAppId String?
+  version    String
+  metadata   Json?
+  fileSize   BigInt?
+  userId     String
+  createdAt  DateTime @default(now())
+
+  @@index([steamAppId, createdAt])
+  @@index([manifestId])
+  @@index([userId])
+  @@map("manifest_versions")
+}
+
+model ApiUsage {
+  id             String   @id @default(cuid())
+  apiKeyId       String
+  endpoint       String
+  method         String
+  status         Int
+  ip             String?
+  userAgent      String?
+  userCountry    String? // Detect via IP (ISO 3166-1 alpha-2)
+  requestedAppId String?
+  requestedName  String?
+  fingerprint    String?
+  createdAt      DateTime @default(now())
+
+  apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@index([apiKeyId, createdAt])
+  @@index([ip, createdAt])
+  @@index([fingerprint])
+  @@map("api_usage")
+}
+
+model RateLimitState {
+  id             String    @id @default(cuid())
+  key            String    @unique // The identifier (e.g. apiKeyId or IP)
+  type           String // "API_KEY" or "IP"
+  blockedUntil   DateTime?
+  abuseScore     Float     @default(0)
+  violationCount Int       @default(0)
+  resetDate      String? // For daily tracking (e.g. "2023-11-20")
+  dailyCount     Int       @default(0)
+  lastUpdate     DateTime  @updatedAt
+
+  @@index([key, type])
+  @@map("rate_limit_states")
+}
+
+model WebGeneration {
+  id                  String   @id @default(cuid())
+  userId              String
+  appId               String
+  gameName            String
+  source              String   @default("web") // "web", "discord", "discord-hosted", "discord-hosted-api"
+  isNsfw              Boolean  @default(false)
+  guildId             String? // Discord server that consumed this hosted-bot gen
+  hostedBotInstanceId String?
+  createdAt           DateTime @default(now())
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hostedBotInstance HostedBotInstance? @relation(fields: [hostedBotInstanceId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([hostedBotInstanceId, createdAt])
+  @@index([guildId, createdAt])
+  @@map("web_generations")
+}
+
+model GameRequest {
+  id               String   @id @default(cuid())
+  appId            String?
+  name             String
+  reason           String?
+  status           String   @default("PENDING") // PENDING, DONE, FULFILLED, REJECTED
+  userId           String
+  discordMessageId String?
+  discordChannelId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("game_requests")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String // The Admin/Mod who performed the action
+  action    String // e.g., "BAN_USER", "UPDATE_PLAN", "BLACKLIST_IP"
+  targetId  String? // The ID of the user/key/IP being acted upon
+  details   Json?
+  ip        String? // IP of the performer
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+model ExtensionScript {
+  id               String   @id @default(cuid())
+  name             String
+  description      String?
+  content          String // The script code
+  language         String   @default("javascript")
+  authorId         String
+  isPublic         Boolean  @default(false)
+  moderationStatus String   @default("APPROVED") // APPROVED, REJECTED, PENDING
+  moderationReason String?
+  rating           Float    @default(0)
+  starCount        Int      @default(0)
+  usageCount       Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  stars ScriptStar[]
+
+  @@index([authorId, createdAt])
+  @@map("extension_scripts")
+}
+
+model ScriptStar {
+  id        String   @id @default(cuid())
+  userId    String
+  scriptId  String
+  createdAt DateTime @default(now())
+
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  script ExtensionScript @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, scriptId])
+  @@map("script_stars")
+}
+
+model ManifestProfile {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  config      Json
+  userId      String
+  starCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("manifest_profiles")
+}
+
+model Voucher {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  type      String
+  value     String
+  uses      Int       @default(1)
+  usedCount Int       @default(0)
+  creatorId String
+  usedById  String?
+  orgId     String?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  creator User  @relation("VoucherCreator", fields: [creatorId], references: [id])
+  usedBy  User? @relation("VoucherUser", fields: [usedById], references: [id])
+
+  @@index([creatorId])
+  @@index([usedById])
+  @@map("vouchers")
+}
+
+model SystemConfig {
+  key       String   @id
+  value     String
+  isSecret  Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
+model SystemNotification {
+  id          String   @id @default(cuid())
+  title       String? // The "Name" of the outage
+  message     String // The summary/primary message
+  description String?  @db.Text // Long-form detail if needed
+  type        String   @default("warning") // "warning" or "error"
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  comments Comment[]
+
+  @@map("system_notifications")
+}
+
+model SteamAccountOrder {
+  id               String                  @id @default(cuid())
+  userId           String
+  productId        String
+  pandabaseOrderId String?                 @unique
+  status           SteamAccountOrderStatus @default(PAID)
+  deliveryPayload  Json?
+  deliveryError    String?
+  deliveredAt      DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([productId])
+  @@map("steam_account_orders")
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  incidentId String
+  userId     String?
+  username   String   @default("Anonymous") // Store display name for guests
+  content    String
+  status     String? // optional: "resolved" | "ongoing" vote from user
+  createdAt  DateTime @default(now())
+
+  incident SystemNotification @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  user     User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([incidentId, createdAt])
+  @@map("comments")
+}
+
+model YouTubeVideo {
+  id          String   @id // The YouTube Video ID
+  title       String
+  thumbnail   String
+  publishedAt DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([publishedAt])
+  @@map("youtube_videos")
+}
+
+enum TrialTestStatus {
+  PENDING // Test not yet generated (legacy) / not released
+  ACTIVE // Test is available for the trial mod to take
+  SUBMITTED // Trial mod submitted answers (legacy: awaiting auto-grade)
+  AWAITING_STAFF // Live exam (Groq + written): AI draft done; needs admin approve / reject / re-grade
+  PASSED // Auto-graded as passed OR staff-approved pass
+  FAILED // Auto-graded as failed OR staff rejection
+  APPEALED // Failed but under admin review
+  OVERRIDE_PASS // Admin overrode to pass
+  OVERRIDE_FAIL // Admin overrode to fail
+}
+
+model TrialTest {
+  id                 String    @id @default(cuid())
+  userId             String
+  // legacy = classic MCQ · live = 20 MCQ + 10 writing · promo_senior / promo_head = timed rank exams · executive_officer = 200q / 4h rank exam
+  examKind           String    @default("legacy")
+  // Live only: in_progress | paused (until submit)
+  sessionState       String?
+  // Promo only: which timed section is active (mcq | fill | done)
+  currentSection     String?
+  // Promo: per-section deadlines · Executive Officer: single overall deadline { exam: { startedAt, endsAt } }
+  timerState         Json?
+  // Executive Officer: per-question + aggregate keystroke analytics (WPM, latency, edit rate) captured while typing
+  typingMetrics      Json?
+  // Executive Officer: estimated CEFR band (A1..C2) derived from written answers + typing
+  englishLevel       String?
+  // Executive Officer: full English-level assessment payload (CEFR, Cambridge exam, dimensions, rationale)
+  englishAssessment  Json?
+  // Executive Officer: per-category expertise + fit reports (owner-only PDF source data)
+  categoryReports    Json?
+  pausedAt           DateTime?
+  lastPauseReason    String?
+  // AI grading payload (Groq buildAiGrade) while awaiting staff
+  aiGrade            Json?
+  regradeRequestedAt DateTime?
+  // Staff reviewer on live flow
+  reviewedByUserId   String?
+  // Live exams: MCQ keys + rubric excerpts (mirrors generated questions) for staff PDFs
+  examAnswerKey      Json?
+
+  questions    Json // Legacy MCQ blob OR live ModQuestion[]
+  answers      Json? // Legacy: number indices · Live: Record<questionId, string>
+  score        Int? // Calculated score
+  maxScore     Int             @default(100)
+  passingScore Int             @default(70) // 70% to pass or point threshold for live exam
+  status       TrialTestStatus @default(PENDING)
+  feedback     String? // Auto or admin feedback
+  adminNotes   String? // Notes from admin override
+  adminId      String? // Admin who overrode (legacy) or graded live exam
+  generatedAt  DateTime? // When test was generated
+  submittedAt  DateTime? // When trial mod submitted
+  gradedAt     DateTime? // When graded (auto or manual)
+  expiresAt    DateTime? // Deadline to complete
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  user       User  @relation("TrialModSubject", fields: [userId], references: [id], onDelete: Cascade)
+  admin      User? @relation("TrialModAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+  reviewedBy User? @relation("LiveTrialReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([adminId])
+  @@index([reviewedByUserId])
+  @@map("trial_tests")
+}
+
+// Tracks how long a Discord member has continuously held a tracked role (e.g. Moderator,
+// Senior Moderator). Used to gate promotional tests by minimum tenure. Updated live by the
+// guild bot on role changes; seeded conservatively from verification snapshots when missing.
+model DiscordRoleTenure {
+  id        String    @id @default(cuid())
+  discordId String
+  roleId    String
+  // When the member most recently gained this role (continuous-hold start).
+  since     DateTime  @default(now())
+  // Set when the member loses the role; cleared on re-gain.
+  removedAt DateTime?
+  // now | snapshot | bot — provenance of `since` for auditing.
+  source    String    @default("bot")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([discordId, roleId])
+  @@index([discordId])
+  @@index([roleId])
+  @@map("discord_role_tenure")
+}
+
+model AppSession {
+  id         String   @id // Use the sessionId provided by client
+  apiKeyId   String
+  userId     String
+  appVersion String
+  lastSeen   DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  apiKey ApiKey     @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events AppEvent[]
+
+  @@index([apiKeyId])
+  @@index([userId])
+  @@index([lastSeen])
+  @@map("app_sessions")
+}
+
+model AppEvent {
+  id        String   @id @default(cuid())
+  sessionId String
+  type      String // startup, heartbeat, install, remove, search
+  appId     String?
+  gameName  String?
+  success   Boolean?
+  detail    String?  @db.Text
+  timestamp DateTime @default(now())
+
+  session AppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, type])
+  @@index([timestamp])
+  @@map("app_events")
+}
+
+model Incident {
+  id        String           @id @default(cuid())
+  title     String
+  severity  String // minor, major, maintenance, resolved
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  updates   IncidentUpdate[]
+
+  @@map("incidents")
+}
+
+model IncidentUpdate {
+  id         String   @id @default(cuid())
+  incidentId String
+  title      String
+  type       String // investigating, identified, monitoring, resolved, completed
+  message    String   @db.Text
+  createdAt  DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@map("incident_updates")
+}
+
+model Punishment {
+  id            String   @id @default(cuid())
+  userId        String? // Optional linked platform user ID
+  discordId     String // Discord ID of the punished user
+  username      String // Discord username of the punished user
+  moderatorId   String // Discord ID of the moderator
+  moderatorName String // Name of the moderator
+  type          String // "WARN", "TIMEOUT", "BAN", etc.
+  reason        String   @db.Text
+  duration      String? // e.g. "5m"
+  proofUrl      String?  @db.Text // URL of proof (image attachment, etc.)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([discordId])
+  @@index([type])
+  @@map("punishments")
+}
+
+enum VerificationSessionStatus {
+  PENDING
+  OAUTH_COMPLETE
+  COMPLETED
+  EXPIRED
+  FAILED
+}
+
+model DiscordVerificationSession {
+  id                   String                    @id @default(cuid())
+  discordId            String
+  guildId              String
+  status               VerificationSessionStatus @default(PENDING)
+  sessionSecret        String
+  expiresAt            DateTime
+  oauthAccessToken     String?
+  oauthRefreshToken    String?
+  verifyIp             String?
+  verifyCountry        String?
+  verifyUserAgent      String?
+  verifyFingerprint    String?
+  verifyCanvasHash     String?
+  vpnDetected          Boolean                   @default(false)
+  altMatchedUserIds    String[]                  @default([])
+  riskFlags            Json?
+  discordIntelSnapshot Json?
+  completedAt          DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  auditLogs VerificationAuditLog[]
+
+  @@index([discordId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("discord_verification_sessions")
+}
+
+model VerificationAuditLog {
+  id        String   @id @default(cuid())
+  sessionId String?
+  discordId String
+  action    String
+  flags     String[] @default([])
+  details   Json?
+  createdAt DateTime @default(now())
+
+  session DiscordVerificationSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([discordId])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("verification_audit_logs")
+}
+
+model TelegramLinkToken {
+  id         String   @id @default(cuid())
+  telegramId String   @unique
+  token      String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+}
+
+model TelegramPromoMessage {
+  id        String   @id @default(cuid())
+  text      String   @db.Text
+  photo     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("telegram_promo_messages")
+}
+
+model OnlineFixGame {
+  id          String    @id @default(cuid())
+  name        String
+  fileName    String
+  fileUrl     String
+  fileSize    String?
+  lastUpdated DateTime?
+  indexedAt   DateTime  @default(now())
+  searches    Int       @default(0)
+
+  @@unique([fileName])
+  @@index([name])
+  @@map("online_fix_games")
+}

@@ -1,0 +1,24 @@
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+async function main() {
+  const logs = await prisma.apiUsage.findMany({
+    where: {
+      endpoint: {
+        startsWith: '/api/v2'
+      }
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 20
+  });
+  console.log(JSON.stringify(logs, null, 2));
+}
+
+main()
+  .catch(e => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

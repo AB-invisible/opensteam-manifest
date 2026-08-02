@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: manifest-generator-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-manifest-generator}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.windows
+    container_name: manifest-generator-web
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-manifest-generator}?schema=public
+      - STORAGE_PATH=/app/bucket
+      - BUCKET_TYPE=${BUCKET_TYPE:-windows}
+    volumes:
+      - C:/bucket:/app/bucket
+    env_file:
+      - .env
+    # The default CMD in Dockerfile is `npm run start`
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.windows
+    container_name: manifest-generator-bot
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-manifest-generator}?schema=public
+      - STORAGE_PATH=/app/bucket
+      - BUCKET_TYPE=${BUCKET_TYPE:-windows}
+    volumes:
+      - C:/bucket:/app/bucket
+    env_file:
+      - .env
+    command: ["npm", "run", "bot"]
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: manifest-generator-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+
+volumes:
+  postgres_data:

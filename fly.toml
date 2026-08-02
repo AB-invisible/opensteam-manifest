@@ -1,0 +1,43 @@
+# fly.toml app configuration file generated for opensteam-manifest-noble-snowflake-8495 on 2026-08-01T15:50:20+01:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'opensteam-manifest-noble-snowflake-8495'
+primary_region = 'ams'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  AUTH_TRUST_HOST = 'true'
+  NODE_ENV = 'production'
+  PORT = '3000'
+  SKIP_ENSURE_BOT = '1'
+  SKIP_HOSTED_BOTS = '1'
+  TRUSTED_PROXY = 'fly'
+
+[processes]
+  bot = 'node scripts/bot-daemon.js'
+  web = 'node scripts/start-cloud.js'
+
+[[services]]
+  protocol = 'tcp'
+  internal_port = 3000
+  auto_stop_machines = 'off'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['web']
+
+  [[services.ports]]
+    port = 80
+    handlers = ['http']
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ['tls', 'http']
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '1024mb'

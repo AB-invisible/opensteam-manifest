@@ -1,0 +1,57 @@
+# Free 24/7 stack: Neon Postgres (external) + this VM + Cloudflare Tunnel.
+# See docs/FREE-HOSTING.md
+#
+#   cp .env.cloud.example .env
+#   docker compose -f docker-compose.cloud.yml up -d --build
+
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SKIP_ENSURE_BOT: "1"
+      SKIP_HOSTED_BOTS: "1"
+      INTERNAL_APP_URL: http://web:3000
+      STORAGE_PATH: /data
+    volumes:
+      - manifest_data:/data
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    command: ["node", "scripts/bot-daemon.js"]
+    environment:
+      INTERNAL_APP_URL: http://web:3000
+      MANIFEST_UPLOAD_BASE_URL: http://web:3000
+      STORAGE_PATH: /data
+      NODE_OPTIONS: --use-system-ca
+    volumes:
+      - manifest_data:/data
+    depends_on:
+      web:
+        condition: service_started
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    # Share web network namespace so tunnel target http://127.0.0.1:3000 works.
+    network_mode: service:web
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    depends_on:
+      web:
+        condition: service_started
+
+volumes:
+  manifest_data:
