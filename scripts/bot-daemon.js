@@ -8351,7 +8351,7 @@ async function fetchExternalManifest(appId) {
       try {
         const res = await axios.get(req.url, {
           responseType: 'arraybuffer',
-          timeout: 45000,
+          timeout: 12000,
           validateStatus: () => true,
           headers: { 'User-Agent': 'OpenSteam/1.0', ...req.headers }
         });
@@ -8387,7 +8387,7 @@ async function fetchExternalManifest(appId) {
       try {
         const res = await axios.get(req.url, {
           responseType: 'arraybuffer',
-          timeout: 30000,
+          timeout: 12000,
           validateStatus: () => true,
           headers: { 'User-Agent': 'OpenSteam/1.0', ...req.headers }
         });

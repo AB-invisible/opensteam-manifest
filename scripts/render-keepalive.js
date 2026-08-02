@@ -1,4 +1,4 @@
-const INTERVAL_MS = 10 * 60 * 1000;
+const INTERVAL_MS = 2.5 * 60 * 1000;
 
 let keepAliveUserId = null;
 let keepAliveMessageId = null;
