@@ -538,7 +538,7 @@ export default function DashboardPage() {
         <div className="flex items-center space-x-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
           <a href="/tos" className="hover:text-indigo-400 transition-colors">Terms of Service</a>
           <a href="/privacy" className="hover:text-indigo-400 transition-colors">Privacy Policy</a>
-          <a href="https://discord.gg/yKyKhSNGKz" target="_blank" rel="noopener noreferrer" className="hover:text-[#5865F2] transition-colors">Community Support</a>
+          <a href="https://discord.gg/4RdMhcYws" target="_blank" rel="noopener noreferrer" className="hover:text-[#5865F2] transition-colors">Community Support</a>
         </div>
         <div className="flex items-center space-x-2 text-white/20 text-[10px] font-medium uppercase tracking-[0.2em]">
           <span>© 2026 OpenSteam Internal • Powered by OpenSteam</span>
@@ -2652,7 +2652,7 @@ function BecomeReseller() {
         </div>
 
         <button
-          onClick={() => window.open('https://discord.gg/yKyKhSNGKz', '_blank')}
+          onClick={() => window.open('https://discord.gg/4RdMhcYws', '_blank')}
           className="mx-auto flex items-center justify-center space-x-2 px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(99,102,241,0.3)] hover:shadow-[0_0_40px_rgba(99,102,241,0.5)] border border-indigo-400/20 hover:-translate-y-1 duration-300"
         >
           <span>Apply for Reseller Tier</span>

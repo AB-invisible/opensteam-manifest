@@ -103,7 +103,7 @@ export async function notifyGuildJoinWelcome(input: {
     getCommunityInviteLinks(),
     getDiscordCommunityLinks(),
   ])
-  const inviteLink = inviteLinks[0] || 'https://discord.gg/yKyKhSNGKz'
+  const inviteLink = inviteLinks[0] || 'https://discord.gg/4RdMhcYws'
 
   const sent = await sendBotDM(discordId, '', {
     title: isRejoin ? '👋 Welcome back to OpenSteam' : '👋 Welcome to OpenSteam',

@@ -6,7 +6,7 @@
 const axios = require('axios');
 
 const CONFIG_KEY = 'DISCORD_COMMUNITY_INVITE_URLS';
-const FALLBACK_INVITE = 'https://discord.gg/yKyKhSNGKz';
+const FALLBACK_INVITE = 'https://discord.gg/4RdMhcYws';
 
 function inviteUrlFromCode(code) {
   return `https://discord.gg/${code}`;

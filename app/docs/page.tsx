@@ -717,7 +717,7 @@ export default function DocsPage() {
             </div>
             <div className="relative z-10 pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
               <a 
-                href="https://discord.gg/yKyKhSNGKz" 
+                href="https://discord.gg/4RdMhcYws" 
                 target="_blank"
                 className="w-full sm:w-auto inline-flex items-center justify-center space-x-3 px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-[1.5rem] font-black transition-all duration-300 hover:scale-105 active:scale-95 shadow-xl shadow-indigo-600/20"
               >
@@ -743,7 +743,7 @@ export default function DocsPage() {
             <a href="/privacy" className="text-muted-foreground hover:text-indigo-400 transition-colors">Privacy Data</a>
             <a href="/credits" className="text-muted-foreground hover:text-indigo-400 transition-colors">Credits</a>
             <a href="/pricing" className="text-indigo-400 hover:text-white transition-colors">Upgrade API</a>
-            <a href="https://discord.gg/yKyKhSNGKz" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-[#5865F2] transition-colors">API Support</a>
+            <a href="https://discord.gg/4RdMhcYws" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-[#5865F2] transition-colors">API Support</a>
           </div>
           <div className="text-center space-y-2 relative z-10">
             <div className="flex justify-center items-center space-x-2 opacity-50 mb-4">

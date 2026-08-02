@@ -221,10 +221,14 @@ export default function Home() {
             </div>
             <div className="flex flex-col -space-y-1">
               <span className="text-xl font-bold tracking-tight text-white hidden sm:block group-hover:text-cyan-300 transition-colors">{site.siteName}</span>
-              <span className="text-[8px] font-black uppercase tracking-[0.2em] text-cyan-400 group-hover:text-amber-400 transition-colors flex items-center space-x-1">
+              <a
+                href="/incidents"
+                className="text-[8px] font-black uppercase tracking-[0.2em] text-cyan-400 hover:text-amber-400 transition-colors flex items-center space-x-1"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="h-1 w-1 bg-current rounded-full animate-pulse" />
                 <span>Live Status: OK</span>
-              </span>
+              </a>
             </div>
           </a>
 
@@ -385,7 +389,6 @@ export default function Home() {
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold uppercase tracking-widest text-cyan-300/80">Public link (share with everyone)</p>
                 <p className="text-sm text-white/90 truncate mt-1 font-mono">{site.publicAccessUrl}</p>
-                <p className="text-xs text-white/50 mt-1">opensteam.lol only works on your PC — others must use this link.</p>
               </div>
               <button
                 type="button"
@@ -822,7 +825,6 @@ export default function Home() {
               <a href="/incidents" className="text-red-400 hover:text-red-300 transition-colors font-bold">Incidents</a>
               <a href="/donate" className="text-amber-400 hover:text-amber-300 transition-colors">Donate</a>
               <a href={site.discordInvite} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-[#5865F2] transition-colors">Discord</a>
-              <a href={site.telegramLink} target="_blank" rel="noopener noreferrer" className="text-[#0088cc] hover:text-[#00aaee] transition-colors font-bold">Telegram</a>
             </div>
             <div className="flex flex-col items-center space-y-2">
               <div className="flex items-center space-x-2 text-white/40 text-sm font-medium">

@@ -200,7 +200,7 @@ export default function TOSPage() {
           <div className="pt-8 text-center border-t border-white/5">
             <p className="text-xs text-muted-foreground italic">
               Continuing to use OpenSteam after July 5, 2026, constitutes acceptance of these terms. 
-              Questions? <a href="https://discord.gg/yKyKhSNGKz" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">Join our Discord</a> or <a href="https://t.me/opensteammanifest" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">Telegram</a>.
+              Questions? <a href="https://discord.gg/4RdMhcYws" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">Join our Discord</a>.
             </p>
           </div>
         </section>
@@ -208,8 +208,7 @@ export default function TOSPage() {
         <footer className="mt-24 py-12 border-t border-white/5">
           <div className="container mx-auto px-6 flex flex-col items-center justify-center space-y-4">
             <div className="flex space-x-6">
-              <a href="https://discord.gg/yKyKhSNGKz" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-indigo-400 transition-colors text-sm font-medium">Join Discord</a>
-              <a href="https://t.me/opensteammanifest" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-indigo-400 transition-colors text-sm font-medium">Join Telegram</a>
+              <a href="https://discord.gg/4RdMhcYws" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-indigo-400 transition-colors text-sm font-medium">Join Discord</a>
             </div>
             <div className="flex items-center space-x-2 text-white/40 text-sm font-medium">
               <img src="/favicon.ico" alt="OpenSteam" className="w-5 h-5 opacity-40 grayscale" />

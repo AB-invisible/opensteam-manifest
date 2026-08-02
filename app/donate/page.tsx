@@ -426,7 +426,7 @@ export default function DonatePage() {
              <a href="/tos" className="hover:text-white transition-colors">Service Terms</a>
              <a href="/privacy" className="hover:text-white transition-colors">Safety & Privacy</a>
              <a href="/dashboard" className="hover:text-white transition-colors">User Portal</a>
-             <a href="https://discord.gg/yKyKhSNGKz" target="_blank" className="text-indigo-400 hover:text-indigo-300 transition-colors">Join Discord</a>
+             <a href="https://discord.gg/4RdMhcYws" target="_blank" className="text-indigo-400 hover:text-indigo-300 transition-colors">Join Discord</a>
            </div>
            <p className="text-[9px] font-medium tracking-[0.4em] opacity-20 uppercase">Property of OpenSteam Internal Infrastructure • 2026</p>
         </div>

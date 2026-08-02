@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   const invites = await getCommunityInviteLinks().catch(() => [])
   const invite = invites.find((url) => /^https:\/\/discord\.(gg|com\/invite)\//i.test(url))
-    || 'https://discord.gg/yKyKhSNGKz'
+    || 'https://discord.gg/4RdMhcYws'
 
   return NextResponse.redirect(invite, {
     status: 302,

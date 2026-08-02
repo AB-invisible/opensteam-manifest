@@ -390,7 +390,7 @@ export async function sendBrandedEmail(
             <table border="0" cellpadding="0" cellspacing="0">
               <tr>
                 <td style="padding:0 14px;">
-                  <a href="https://discord.gg/yKyKhSNGKz" style="color:#374151;text-decoration:none;font-size:12px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">Discord</a>
+                  <a href="https://discord.gg/4RdMhcYws" style="color:#374151;text-decoration:none;font-size:12px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">Discord</a>
                 </td>
                 <td style="color:#1f2937;font-size:12px;">&middot;</td>
                 <td style="padding:0 14px;">

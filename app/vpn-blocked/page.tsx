@@ -8,7 +8,7 @@ export const metadata = {
   description: 'VPN or Proxy detected.',
 }
 
-const DISCORD_INVITE = 'https://discord.gg/T3sDD7WVNN'
+const DISCORD_INVITE = 'https://discord.gg/4RdMhcYws'
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -106,7 +106,7 @@ export default async function VPNBlockedPage() {
               rel="noopener noreferrer"
               className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
             >
-              discord.gg/T3sDD7WVNN
+              discord.gg/4RdMhcYws
             </a>
           </p>
         </div>

@@ -531,7 +531,7 @@ export default function PricingPage() {
           <div className="flex items-center space-x-6 text-[10px] font-black uppercase tracking-widest">
             <a href="/tos" className="text-muted-foreground hover:text-indigo-400 transition-colors">Terms of Service</a>
             <a href="/privacy" className="text-muted-foreground hover:text-indigo-400 transition-colors">Privacy Policy</a>
-            <a href="https://discord.gg/yKyKhSNGKz" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-[#5865F2] transition-colors">Discord Support</a>
+            <a href="https://discord.gg/4RdMhcYws" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-[#5865F2] transition-colors">Discord Support</a>
           </div>
           <div className="flex flex-col items-center justify-center space-y-2">
             <div className="flex items-center space-x-2 text-white/40 text-sm font-medium">

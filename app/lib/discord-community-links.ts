@@ -16,7 +16,7 @@ export type DiscordCommunityLinks = {
 
 /** Fallback when the Discord API is unavailable or returns no invites. */
 const FALLBACK_COMMUNITY_INVITES = [
-  'https://discord.gg/yKyKhSNGKz',
+  'https://discord.gg/4RdMhcYws',
 ] as const
 
 /** @deprecated Use getCommunityInviteLinks() — kept for static fallbacks. */

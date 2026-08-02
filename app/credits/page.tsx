@@ -7,7 +7,7 @@ const CREDITS = [
   {
     name: 'OpenSteam',
     role: 'Platform, manifest registry, and community tooling',
-    url: 'http://127.0.0.1:3000',
+    url: 'https://manifest-web-ylio.onrender.com',
     note: 'Manifest archives are cleaned and re-credited before storage and delivery.',
   },
   {

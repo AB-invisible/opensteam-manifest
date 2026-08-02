@@ -13,7 +13,7 @@ const DEFAULTS = {
   accentColor: '#22d3ee',
   secondaryColor: '#f59e0b',
   logoPath: '/opensteam.png',
-  discordInvite: 'https://discord.gg/yKyKhSNGKz',
+  discordInvite: 'https://discord.gg/4RdMhcYws',
   telegramLink: 'https://t.me/opensteammanifest',
   footerText: '© 2026 OpenSteam Platform. Powered by OpenSteam | Manifests',
   loginUrl: 'http://opensteam.lol',

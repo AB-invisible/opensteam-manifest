@@ -48,7 +48,7 @@ export function ReVerifyBanner() {
       </div>
       <div className="flex gap-2 shrink-0">
         <a
-          href="https://discord.gg/yKyKhSNGKz"
+          href="https://discord.gg/4RdMhcYws"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-xs font-bold text-white transition-colors"
