@@ -3,8 +3,8 @@ import fs from 'fs'
 import path from 'path'
 import { isLocalOpenSteamHost, isLocalhostHost, isTunnelHost } from './app-hosts'
 
-const PRODUCTION_FALLBACK = 'https://opensteam.lol'
-const LOCAL_SITE_URL = 'https://opensteam.lol'
+const PRODUCTION_FALLBACK = 'https://manifest-web-ylio.onrender.com'
+const LOCAL_SITE_URL = 'https://manifest-web-ylio.onrender.com'
 const TUNNEL_URL_FILE = path.join(
   process.env.USERPROFILE || process.env.HOME || '',
   'Desktop',

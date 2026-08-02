@@ -10,7 +10,7 @@ function getSiteUrl() {
   const raw =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXTAUTH_URL ||
-    'https://opensteam.lol';
+    'https://manifest-web-ylio.onrender.com';
   return String(raw).trim().replace(/\/$/, '');
 }
 
