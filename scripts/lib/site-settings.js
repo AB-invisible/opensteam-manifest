@@ -5,7 +5,7 @@ const SETTINGS_PATH = path.join(__dirname, '..', '..', 'data', 'site-settings.js
 
 const DEFAULTS = {
   siteName: 'OpenSteam',
-  siteUrl: 'http://opensteam.lol',
+  siteUrl: 'https://manifest-web-ylio.onrender.com',
   tagline: 'Secure • Scalable • Developer-first',
   heroTitle: 'OpenSteam Manifests',
   heroSubtitle: 'Community-driven Steam manifest generation with real-time API integration.',
@@ -16,7 +16,7 @@ const DEFAULTS = {
   discordInvite: 'https://discord.gg/4RdMhcYws',
   telegramLink: 'https://t.me/opensteammanifest',
   footerText: '© 2026 OpenSteam Platform. Powered by OpenSteam | Manifests',
-  loginUrl: 'http://opensteam.lol',
+  loginUrl: 'https://manifest-web-ylio.onrender.com',
 };
 
 const ALLOWED_KEYS = Object.keys(DEFAULTS);

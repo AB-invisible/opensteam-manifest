@@ -20,7 +20,7 @@ export type SiteSettings = {
 
 const DEFAULTS: SiteSettings = {
   siteName: 'OpenSteam',
-  siteUrl: 'https://opensteam.lol',
+  siteUrl: 'https://manifest-web-ylio.onrender.com',
   tagline: 'Secure • Scalable • Developer-first',
   heroTitle: 'OpenSteam Manifests',
   heroSubtitle: 'Community-driven Steam manifest generation with real-time API integration.',
