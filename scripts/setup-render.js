@@ -69,6 +69,7 @@ const ENV_KEYS = [
   'KEEPALIVE_GUILD_ID',
   'SKIP_ENSURE_BOT',
   'SKIP_HOSTED_BOTS',
+  'NEON_DATABASE_URL',
 ];
 
 function parseEnvFile(filePath) {
@@ -155,7 +156,14 @@ async function findPostgresDb(name) {
   return rows.find((r) => r.postgres?.name === name)?.postgres || rows.find((r) => r.name === name);
 }
 
-async function resolveDatabaseUrl() {
+async function resolveDatabaseUrl(localEnv = {}) {
+  const neon =
+    (localEnv.NEON_DATABASE_URL || process.env.NEON_DATABASE_URL || '').trim();
+  if (neon && !/127\.0\.0\.1|localhost/i.test(neon)) return neon;
+
+  const dbUrl = (localEnv.DATABASE_URL || '').trim();
+  if (dbUrl && !/127\.0\.0\.1|localhost/i.test(dbUrl)) return dbUrl;
+
   const db = await findPostgresDb('manifest-db');
   if (!db?.id) return null;
   const info = await api('GET', `/postgres/${db.id}/connection-info`);
@@ -184,7 +192,7 @@ async function setupService(name, localEnv, extra = {}) {
     return null;
   }
   const envVars = buildEnvList(localEnv, extra);
-  const dbUrl = await resolveDatabaseUrl();
+  const dbUrl = await resolveDatabaseUrl(localEnv);
   if (dbUrl) envVars.push({ key: 'DATABASE_URL', value: dbUrl });
 
   console.log(`[setup-render] Patching ${name} (${envVars.length} vars)...`);

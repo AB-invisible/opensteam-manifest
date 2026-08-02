@@ -1,14 +1,8 @@
-# Render Blueprint — manifest web + bot + Postgres (S3 storage)
+# Render Blueprint — manifest web + bot (S3 storage, Neon Postgres)
 # Repo: https://github.com/AB-invisible/opensteam-manifest
+# Note: Render free tier allows one Postgres — use Neon DATABASE_URL via setup-render.js
 
-databases:
-  - name: manifest-db
-    plan: free
-    databaseName: manifest
-    user: manifest
-
-services:
-  - type: web
+services:  - type: web
     name: manifest-web
     runtime: docker
     plan: free
@@ -36,9 +30,7 @@ services:
       - key: AUTH_TRUST_HOST
         value: "true"
       - key: DATABASE_URL
-        fromDatabase:
-          name: manifest-db
-          property: connectionString
+        sync: false
       - key: DISCORD_BOT_TOKEN
         sync: false
       - key: DISCORD_GUILD_ID
@@ -100,9 +92,7 @@ services:
       - key: KEEPALIVE_USERNAME
         value: itz.seasonn
       - key: DATABASE_URL
-        fromDatabase:
-          name: manifest-db
-          property: connectionString
+        sync: false
       - key: DISCORD_BOT_TOKEN
         sync: false
       - key: DISCORD_GUILD_ID
