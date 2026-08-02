@@ -67,6 +67,7 @@ const ENV_KEYS = [
   'KEEPALIVE_USERNAME',
   'KEEPALIVE_USER_ID',
   'KEEPALIVE_GUILD_ID',
+  'KEEPALIVE_HEALTH_PATH',
   'SKIP_ENSURE_BOT',
   'SKIP_HOSTED_BOTS',
   'NEON_DATABASE_URL',
@@ -108,6 +109,7 @@ function cloudify(env) {
   out.KEEPALIVE_CHANNEL_ID = out.KEEPALIVE_CHANNEL_ID || '1533279676037075005';
   out.KEEPALIVE_USERNAME = out.KEEPALIVE_USERNAME || 'itz.seasonn';
   out.KEEPALIVE_GUILD_ID = out.KEEPALIVE_GUILD_ID || out.DISCORD_GUILD_ID || '';
+  out.KEEPALIVE_HEALTH_PATH = out.KEEPALIVE_HEALTH_PATH || '/';
   for (const key of ['INTERNAL_APP_URL', 'MANIFEST_UPLOAD_BASE_URL', 'NEXTAUTH_URL', 'NEXT_PUBLIC_APP_URL']) {
     const v = (out[key] || '').trim();
     if (/127\.0\.0\.1|localhost|trycloudflare|loca\.lt/i.test(v)) delete out[key];
@@ -215,19 +217,31 @@ async function main() {
     process.exit(1);
   }
 
-  const web = await setupService('manifest-web', localEnv);
-  const webUrl = web?.url;
-  const botExtra = {};
-  if (webUrl) {
-    botExtra.INTERNAL_APP_URL = webUrl;
-    botExtra.MANIFEST_UPLOAD_BASE_URL = webUrl;
-    botExtra.NEXTAUTH_URL = webUrl;
-    botExtra.NEXT_PUBLIC_APP_URL = webUrl;
-  }
-  await setupService('manifest-bot', localEnv, botExtra);
+  const existingWeb = await findService('manifest-web');
+  const knownWebUrl = existingWeb?.serviceDetails?.url || existingWeb?.url;
+  const webExtra = knownWebUrl
+    ? {
+        NEXTAUTH_URL: knownWebUrl,
+        NEXT_PUBLIC_APP_URL: knownWebUrl,
+        INTERNAL_APP_URL: knownWebUrl,
+        MANIFEST_UPLOAD_BASE_URL: knownWebUrl,
+      }
+    : {};
 
+  const web = await setupService('manifest-web', localEnv, webExtra);
+  const webUrl = web?.url || knownWebUrl;
   if (webUrl) {
     console.log(`[setup-render] Update Discord OAuth redirect: ${webUrl}/api/auth/callback/discord`);
+  }
+
+  const bot = await findService('manifest-bot');
+  if (bot?.id) {
+    console.log('[setup-render] Suspending manifest-bot (bot runs inside manifest-web)...');
+    try {
+      await api('POST', `/services/${bot.id}/suspend`, {});
+    } catch (e) {
+      console.warn('[setup-render] Could not suspend manifest-bot:', e.message);
+    }
   }
 
   if (process.platform === 'win32') {

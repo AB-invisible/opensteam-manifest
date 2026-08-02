@@ -83,7 +83,8 @@ async function pingDiscordChannel(client) {
 }
 
 async function tickBot(client) {
-  await pingPublicHealth('/health');
+  const healthPath = (process.env.KEEPALIVE_HEALTH_PATH || '/health').trim() || '/health';
+  await pingPublicHealth(healthPath);
   await pingDiscordChannel(client);
 }
 
