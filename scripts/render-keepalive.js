@@ -101,8 +101,9 @@ function startHttpKeepAlive() {
 function startRenderKeepAlive(client) {
   if (!process.env.RENDER_EXTERNAL_URL && process.env.KEEPALIVE_ENABLED !== 'true') return;
   const channelId = process.env.KEEPALIVE_CHANNEL_ID || '1533279676037075005';
+  const healthPath = (process.env.KEEPALIVE_HEALTH_PATH || '/health').trim() || '/health';
   console.log(
-    `[KeepAlive] Every ${INTERVAL_MS / 60_000}m — /health + ping @${process.env.KEEPALIVE_USERNAME || 'itz.seasonn'} in ${channelId}`,
+    `[KeepAlive] Every ${INTERVAL_MS / 60_000}m — ${healthPath} + ping @${process.env.KEEPALIVE_USERNAME || 'itz.seasonn'} in ${channelId}`,
   );
   tickBot(client).catch((e) => console.warn('[KeepAlive] First tick failed:', e.message));
   setInterval(() => {

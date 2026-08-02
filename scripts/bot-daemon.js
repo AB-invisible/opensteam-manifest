@@ -458,7 +458,8 @@ function safeLuaFilename(name, appId) {
   return `${cleaned || `App_${appIdStr}`}_DLC_${appIdStr}.lua`;
 }
 
-const MAX_GEN_DISCORD_ZIP = 8 * 1024 * 1024;
+const MAX_GEN_DISCORD_ZIP = 25 * 1024 * 1024;
+const MAX_GEN_DISCORD_ZIP_LABEL = '25MB';
 
 /** Set in startBot(); used by /gen storage helpers. */
 let botS3Client = null;
@@ -720,7 +721,7 @@ function buildGenDeliveryFields({ gameName, appId, zipDelivered, zipTooLarge, zi
   } else if (zipTooLarge) {
     fields.push({
       name: 'ZIP file',
-      value: `Too large for Discord (over 8MB). Sign in at [${getSiteHostLabel()}](${appUrl}) — saved on our servers.`,
+      value: `Too large for Discord (over ${MAX_GEN_DISCORD_ZIP_LABEL}). Sign in at [${getSiteHostLabel()}](${appUrl}) — saved on our servers.`,
       inline: false,
     });
   }
@@ -788,8 +789,43 @@ async function upsertGenManifestRecord(appId, gameName, zipBuffer, userId) {
 }
 
 /** Load cached manifest ZIP from S3 or local storage (for Discord attachment). */
-async function loadCachedManifestZip(appId) {
-  const s3Key = `manifests/${appId}/${appId}.zip`;
+async function loadCachedManifestZip(appId, knownSizeBytes = null, s3KeyOverride = null) {
+  const s3Key = s3KeyOverride || `manifests/${appId}/${appId}.zip`;
+  let sizeBytes = knownSizeBytes != null ? Number(knownSizeBytes) : null;
+
+  if (sizeBytes == null && botS3Client && process.env.AWS_S3_BUCKET_NAME) {
+    try {
+      const head = await botS3Client.send(new HeadObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET_NAME,
+        Key: s3Key,
+      }));
+      sizeBytes = Number(head.ContentLength || 0);
+    } catch (e) {
+      console.warn(`[Bot Gen] S3 HeadObject failed for ${appId}:`, e.message);
+    }
+  }
+
+  const storagePath = process.env.STORAGE_PATH || path.join(__dirname, '../data');
+  const localZipPath = path.join(storagePath, 'manifests', appId, `${appId}.zip`);
+  if ((sizeBytes == null || sizeBytes <= 0) && fs.existsSync(localZipPath)) {
+    sizeBytes = fs.statSync(localZipPath).size;
+  }
+
+  if (!sizeBytes || sizeBytes <= 0) {
+    return { buffer: null, reason: 'missing', size: 0 };
+  }
+
+  if (sizeBytes > MAX_GEN_DISCORD_ZIP) {
+    return { buffer: null, reason: 'too_large', size: sizeBytes };
+  }
+
+  if (fs.existsSync(localZipPath)) {
+    const stats = fs.statSync(localZipPath);
+    if (stats.size > 0 && stats.size <= MAX_GEN_DISCORD_ZIP) {
+      return { buffer: fs.readFileSync(localZipPath), reason: null, size: stats.size };
+    }
+  }
+
   if (botS3Client && process.env.AWS_S3_BUCKET_NAME) {
     try {
       const s3Res = await botS3Client.send(new GetObjectCommand({
@@ -802,23 +838,18 @@ async function loadCachedManifestZip(appId) {
       }
       const zipBuffer = Buffer.concat(chunks);
       if (zipBuffer.length > 0 && zipBuffer.length <= MAX_GEN_DISCORD_ZIP) {
-        return zipBuffer;
+        return { buffer: zipBuffer, reason: null, size: zipBuffer.length };
+      }
+      if (zipBuffer.length > MAX_GEN_DISCORD_ZIP) {
+        return { buffer: null, reason: 'too_large', size: zipBuffer.length };
       }
     } catch (e) {
-      /* try local */
+      console.warn(`[Bot Gen] S3 GetObject failed for ${appId}:`, e.message);
+      return { buffer: null, reason: 'load_error', size: sizeBytes, error: e.message };
     }
   }
 
-  const storagePath = process.env.STORAGE_PATH || path.join(__dirname, '../data');
-  const localZipPath = path.join(storagePath, 'manifests', appId, `${appId}.zip`);
-  if (fs.existsSync(localZipPath)) {
-    const stats = fs.statSync(localZipPath);
-    if (stats.size > 0 && stats.size <= MAX_GEN_DISCORD_ZIP) {
-      return fs.readFileSync(localZipPath);
-    }
-  }
-
-  return null;
+  return { buffer: null, reason: 'load_error', size: sizeBytes };
 }
 
 /**
@@ -4323,7 +4354,7 @@ async function startBot() {
         let manifestData = await prisma.manifest.findUnique({ where: { steamAppId: appId } });
         let isFileInStorage = false;
 
-        const s3Key = `manifests/${appId}/${appId}.zip`;
+        const s3Key = manifestData?.s3Key || `manifests/${appId}/${appId}.zip`;
         if (!manifestData && botS3Client && process.env.AWS_S3_BUCKET_NAME) {
           try {
             await botS3Client.send(new HeadObjectCommand({ Bucket: process.env.AWS_S3_BUCKET_NAME, Key: s3Key }));
@@ -4353,11 +4384,14 @@ async function startBot() {
             data: { userId: user.id, appId, gameName, source: 'discord' }
           });
 
-          const zipBuffer = await loadCachedManifestZip(appId);
-          const zipTooLarge = !zipBuffer && (manifestData || isFileInStorage);
+          const knownSize = manifestData?.fileSize != null ? Number(manifestData.fileSize) : null;
+          const loaded = await loadCachedManifestZip(appId, knownSize, manifestData?.s3Key || s3Key);
+          const zipBuffer = loaded.buffer;
+          const zipTooLarge = loaded.reason === 'too_large';
+          const zipLoadFailed = loaded.reason === 'load_error' || loaded.reason === 'missing';
 
           let description = gameInfo?.short_description || `**${gameName}** is already available in our high-speed storage.`;
-          if (zipBuffer && !zipTooLarge) {
+          if (zipBuffer) {
             description += '\n\n📩 _Your ZIP will arrive in a **separate private message** only you can see._';
           }
 
@@ -4393,7 +4427,12 @@ async function startBot() {
           } else if (zipTooLarge) {
             await notifyGenZipFailure(
               interaction,
-              `⚠️ **${gameName}** (\`${appId}\`) is over Discord's 8MB limit. Sign in at ${getGenAppUrl()} to download it.`
+              `⚠️ **${gameName}** (\`${appId}\`) is over Discord's ${MAX_GEN_DISCORD_ZIP_LABEL} limit. Sign in at ${getGenAppUrl()} to download it.`
+            );
+          } else if (zipLoadFailed) {
+            await notifyGenZipFailure(
+              interaction,
+              `⚠️ **${gameName}** (\`${appId}\`) is saved on our servers but could not be attached here. Sign in at ${getGenAppUrl()} to download it.`
             );
           }
 
@@ -4478,7 +4517,7 @@ async function startBot() {
         } else {
           await notifyGenZipFailure(
             interaction,
-            `⚠️ **${gameName}** (\`${appId}\`) is over Discord's 8MB limit. Sign in at ${getGenAppUrl()} to download it.`
+            `⚠️ **${gameName}** (\`${appId}\`) is over Discord's ${MAX_GEN_DISCORD_ZIP_LABEL} limit. Sign in at ${getGenAppUrl()} to download it.`
           );
         }
 
