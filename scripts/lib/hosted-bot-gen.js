@@ -8,7 +8,8 @@ const { cleanManifestZip } = require('./clean-manifest');
 const steamCache = new Map();
 let botS3Client = null;
 
-const MAX_GEN_DISCORD_ZIP = 8 * 1024 * 1024;
+const MAX_GEN_DISCORD_ZIP = 25 * 1024 * 1024;
+const MAX_GEN_DISCORD_ZIP_LABEL = '25MB';
 
 function initS3() {
   if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && process.env.AWS_S3_BUCKET_NAME) {
@@ -379,6 +380,7 @@ module.exports = {
   passiveBackfillManifestName,
   isPlaceholderName,
   MAX_GEN_DISCORD_ZIP,
+  MAX_GEN_DISCORD_ZIP_LABEL,
   EmbedBuilder,
   HeadObjectCommand,
 };

@@ -3,8 +3,8 @@ process.title = 'OpenSteam-Bot-Daemon';
 const path = require('path');
 const fs = require('fs');
 
-// PID file lock to prevent duplicate concurrent bot processes
-const pidFile = path.join(__dirname, '../data/bot.pid');
+// PID file lock to prevent duplicate concurrent bot processes (skip stale locks on cloud)
+const pidFile = process.env.BOT_PID_FILE || path.join(__dirname, '../data/bot.pid');
 try {
   const dataDir = path.dirname(pidFile);
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });

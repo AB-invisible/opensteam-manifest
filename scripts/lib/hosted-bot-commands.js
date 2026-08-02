@@ -16,6 +16,7 @@ const {
   passiveBackfillManifestName,
   isPlaceholderName,
   MAX_GEN_DISCORD_ZIP,
+  MAX_GEN_DISCORD_ZIP_LABEL,
   EmbedBuilder,
   HeadObjectCommand,
 } = require('./hosted-bot-gen');
@@ -530,6 +531,11 @@ async function handleHostedInteraction(interaction, prisma, botS3Client, options
               flags: require('discord.js').MessageFlags.Ephemeral,
             }).catch(() => {});
           }
+        } else {
+          await interaction.followUp({
+            content: `⚠️ **${resolvedName}** (\`${appId}\`) is over Discord's ${MAX_GEN_DISCORD_ZIP_LABEL} limit. Sign in at ${getGenAppUrl()} to download it.`,
+            flags: require('discord.js').MessageFlags.Ephemeral,
+          }).catch(() => {});
         }
         return;
       }
@@ -589,7 +595,7 @@ async function handleHostedInteraction(interaction, prisma, botS3Client, options
         }
       } else {
         await interaction.followUp({
-          content: `⚠️ File over 8MB. Download via ${getGenAppUrl()}.`,
+          content: `⚠️ **${gameName}** (\`${appId}\`) is over Discord's ${MAX_GEN_DISCORD_ZIP_LABEL} limit. Sign in at ${getGenAppUrl()} to download it.`,
           flags: require('discord.js').MessageFlags.Ephemeral,
         }).catch(() => {});
       }

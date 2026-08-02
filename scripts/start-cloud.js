@@ -21,6 +21,10 @@ for (const script of scripts) {
 }
 
 console.log('[StartCloud] Launching Next.js server...');
+
+const { startDiscordBotSidecar } = require('./lib/render-bot-sidecar');
+startDiscordBotSidecar();
+
 const nextBin = path.join(__dirname, '..', 'node_modules', 'next', 'dist', 'bin', 'next');
 process.argv = [process.argv[0], nextBin, 'start'];
 require(nextBin);
