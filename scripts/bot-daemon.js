@@ -503,8 +503,8 @@ function accountNotLinkedReply(interaction) {
 const VERIFY_DEFAULTS = {
   UNVERIFIED_ROLE_ID: '1505832860035059742',
   VERIFIED_ROLE_ID: '1473719437692637288',
-  VERIFY_CHANNEL_ID: '1475047795697389760',
-  VERIFY_BANNER_URL: 'http://127.0.0.1:3000/zk-manifest-logo.png',
+  VERIFY_CHANNEL_ID: '1532910591264423988',
+  VERIFY_BANNER_URL: 'https://manifest-web-ylio.onrender.com/opensteam.png',
 };
 
 async function getVerifyConfig() {

@@ -104,7 +104,7 @@ export async function resolveAllBotTokens(): Promise<string[]> {
   return out
 }
 
-async function resolvePrimaryOAuthCredentials(): Promise<OAuthCredentials> {
+export async function resolvePrimaryOAuthCredentials(): Promise<OAuthCredentials> {
   const [clientId, clientSecret] = await Promise.all([
     getConfigValue('DISCORD_CLIENT_ID'),
     getConfigValue('DISCORD_CLIENT_SECRET'),
