@@ -170,7 +170,7 @@ async function upsertSystemConfig(prisma, key, value, isSecret = false) {
   });
 }
 
-async function handleSetCommand(interaction, prisma) {
+async function handleSetCommand(interaction, prisma, options = {}) {
   const sub = interaction.options.getSubcommand(false);
 
   const platformUser = await prisma.user.findUnique({
@@ -243,12 +243,33 @@ async function handleSetCommand(interaction, prisma) {
     const channelId = String(channel.id);
     await upsertSystemConfig(prisma, VERIFY_CHANNEL_KEY, channelId, false);
 
+    for (const key of ['DISCORD_VERIFY_MESSAGE_ID', 'DISCORD_BACKUP_VERIFY_MESSAGE_ID']) {
+      try {
+        await prisma.systemConfig.delete({ where: { key } });
+      } catch {
+        // not set yet
+      }
+    }
+
+    let repostNote = 'Posting the verify panel now…';
+    if (typeof options?.repostVerifyPanel === 'function') {
+      try {
+        await options.repostVerifyPanel();
+        repostNote = 'The verify panel has been posted in this channel.';
+      } catch (err) {
+        console.error('[Set] verify panel repost failed:', err);
+        repostNote = 'Could not post the verify panel automatically — restart the bot or run `node scripts/post-verify-panel.js`.';
+      }
+    } else {
+      repostNote = 'Restart the bot or wait for the next startup so the verify panel is posted in this channel.';
+    }
+
     return interaction.reply({
       content: [
         '✅ **Verify channel set**',
         `• Channel: ${channel} (\`${channelId}\`)`,
         '',
-        'Restart the bot or wait for the next startup so the verify panel is posted in this channel.',
+        repostNote,
       ].join('\n'),
       ephemeral: true,
     });

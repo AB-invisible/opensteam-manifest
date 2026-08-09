@@ -6341,7 +6341,9 @@ async function startBot() {
 
     if (interaction.commandName === 'set') {
       try {
-        await handleSetCommand(interaction, prisma);
+        await handleSetCommand(interaction, prisma, {
+          repostVerifyPanel: () => ensureVerifyMessage(client),
+        });
       } catch (err) {
         console.error('[Set] command error:', err);
         const payload = { content: 'Could not update the upload channel right now.', flags: MessageFlags.Ephemeral };

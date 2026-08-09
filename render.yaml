@@ -19,6 +19,8 @@ services:  - type: web
         value: "1"
       - key: SKIP_HOSTED_BOTS
         value: "1"
+      - key: RUN_DISCORD_BOT
+        value: "1"
       - key: BUCKET_TYPE
         value: s3
       - key: STORAGE_PATH
