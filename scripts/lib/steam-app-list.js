@@ -115,6 +115,16 @@ function matchAppIdFromCatalogue(apps, requestName) {
   return { appId: String(match.appid), name: String(match.name || requestName).slice(0, 200) };
 }
 
+/** Resolve a game title from the Steam catalogue when appdetails is rate-limited. */
+async function lookupSteamAppNameById(appId, getConfigValue) {
+  const id = Number(appId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+
+  const apps = await fetchSteamAppList(getConfigValue);
+  const match = apps.find((app) => app.appid === id);
+  return match?.name ? String(match.name).slice(0, 200) : null;
+}
+
 /** Resolve a pending game request's Steam App ID from its name when appId is missing. */
 async function resolveAutogenAppIdFromName(requestName, getConfigValue) {
   let apps = [];
@@ -131,6 +141,7 @@ async function resolveAutogenAppIdFromName(requestName, getConfigValue) {
 module.exports = {
   fetchSteamAppList,
   searchSteamStoreByName,
+  lookupSteamAppNameById,
   resolveAutogenAppIdFromName,
   normalizeSteamName,
 };

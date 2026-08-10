@@ -44,9 +44,10 @@ async function main() {
   const deploy = await api('POST', `/services/${web.id}/deploys`, {
     clearCache: 'clear',
   })
+  const deployObj = deploy?.deploy || deploy
   console.log('Deploy triggered for manifest-web')
-  console.log('Deploy id:', deploy.id)
-  console.log('Status:', deploy.status)
+  console.log('Deploy id:', deployObj?.id || '(pending)')
+  console.log('Status:', deployObj?.status || 'unknown')
   console.log('URL:', web.serviceDetails?.url || web.url)
 }
 

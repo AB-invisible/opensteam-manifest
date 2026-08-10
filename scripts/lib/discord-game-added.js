@@ -47,9 +47,8 @@ function buildGameAddedEmbedPayload({ appId, gameName, imageUrl, shortDescriptio
   const appIdStr = String(appId || '').trim();
   const steamUrl = appIdStr ? `https://store.steampowered.com/app/${appIdStr}` : undefined;
   const title = String(gameName || '').trim() || (appIdStr ? `App ${appIdStr}` : 'New Game');
-  const headerImage =
-    imageUrl ||
-    (appIdStr ? `https://cdn.akamai.steamstatic.com/steam/apps/${appIdStr}/header.jpg` : null);
+  // Newer Steam titles 404 on the legacy header.jpg CDN path — only use URLs from appdetails/DB.
+  const headerImage = String(imageUrl || '').trim() || null;
 
   const embed = {
     title,
@@ -75,7 +74,7 @@ async function announceGameAddedViaRest(prisma, payload = {}) {
     return { ok: false, skipped: true, reason: 'no_token' };
   }
 
-  const enriched = await enrichAnnouncementPayload(payload);
+  const enriched = await enrichAnnouncementPayload(payload, prisma);
 
   try {
     const res = await axios.post(
@@ -110,7 +109,7 @@ async function announceGameAdded(client, prisma, payload = {}) {
   const channelId = await getAddedGamesChannelId(prisma);
   if (!channelId) return { ok: false, skipped: true, reason: 'no_channel' };
 
-  const enriched = await enrichAnnouncementPayload(payload);
+  const enriched = await enrichAnnouncementPayload(payload, prisma);
 
   if (client?.channels?.fetch) {
     try {

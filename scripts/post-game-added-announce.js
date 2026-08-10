@@ -11,7 +11,6 @@ if (!/^\d+$/.test(appId)) {
 
 const { PrismaClient } = require('@prisma/client')
 const { announceGameAddedViaRest } = require('./lib/discord-game-added')
-const { enrichAnnouncementPayload } = require('./lib/steam-store-meta')
 const prisma = new PrismaClient()
 
 async function main() {
@@ -20,12 +19,10 @@ async function main() {
     select: { name: true, steamAppId: true },
   })
 
-  const payload = await enrichAnnouncementPayload({
+  const result = await announceGameAddedViaRest(prisma, {
     appId,
     gameName: manifest?.name || `App ${appId}`,
   })
-
-  const result = await announceGameAddedViaRest(prisma, payload)
   console.log(result)
 }
 

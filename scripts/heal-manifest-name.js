@@ -8,12 +8,16 @@ async function main() {
   const appId = process.argv[2] || '1067360'
   const meta = await resolveSteamStoreMeta(appId)
   console.log(meta)
-  if (meta?.gameName) {
+  if (meta?.gameName || meta?.imageUrl) {
     await prisma.manifest.update({
       where: { steamAppId: String(appId) },
-      data: { name: meta.gameName },
+      data: {
+        ...(meta.gameName ? { name: meta.gameName } : {}),
+        ...(meta.imageUrl ? { imageUrl: meta.imageUrl } : {}),
+        ...(meta.shortDescription ? { description: meta.shortDescription } : {}),
+      },
     })
-    console.log('Updated manifest name for', appId)
+    console.log('Updated manifest metadata for', appId)
   }
 }
 

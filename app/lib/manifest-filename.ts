@@ -33,8 +33,15 @@ export function safeManifestFilename(name: string | null | undefined, appId: str
  * Returns null if the app isn't on Steam or Steam is unreachable.
  */
 export async function fetchSteamGameName(appId: string | number): Promise<string | null> {
+  const meta = await fetchSteamStoreMeta(appId)
+  return meta?.gameName || null
+}
+
+export async function fetchSteamStoreMeta(
+  appId: string | number,
+): Promise<{ gameName: string | null; imageUrl: string | null; shortDescription: string | null } | null> {
   const appIdStr = String(appId)
-  const RETRY_DELAYS_MS = [0, 800, 2200]
+  const RETRY_DELAYS_MS = [0, 800, 2200, 5000]
   for (let attempt = 0; attempt < RETRY_DELAYS_MS.length; attempt++) {
     if (RETRY_DELAYS_MS[attempt] > 0) {
       await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]))
@@ -42,14 +49,25 @@ export async function fetchSteamGameName(appId: string | number): Promise<string
     try {
       const res = await fetch(
         `https://store.steampowered.com/api/appdetails?appids=${appIdStr}&l=english&cc=us&filters=basic`,
-        { signal: AbortSignal.timeout(6000) }
+        {
+          signal: AbortSignal.timeout(8000),
+          headers: { Accept: 'application/json', 'User-Agent': 'OpenSteam/1.0' },
+        },
       )
       if (res.status === 429) continue
       if (!res.ok) break
       const json: any = await res.json()
       const node = json?.[appIdStr]
       if (!node || node.success === false) break
-      if (node.data?.name) return String(node.data.name).slice(0, 200)
+      if (node.data) {
+        return {
+          gameName: node.data.name ? String(node.data.name).slice(0, 200) : null,
+          imageUrl: node.data.header_image || null,
+          shortDescription: node.data.short_description
+            ? String(node.data.short_description).slice(0, 500)
+            : null,
+        }
+      }
       break
     } catch {
       // retry

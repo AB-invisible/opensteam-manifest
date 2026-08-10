@@ -64,10 +64,12 @@ async function registerManifestLocally(prisma, { appId, gameName, zipBuffer, use
 
   const ownerId = userId || (await resolveSyncUserId(prisma));
   let name = String(gameName || `App ${appIdStr}`).slice(0, 200);
-  if (isPlaceholderManifestName(name)) {
-    const steam = await resolveSteamStoreMeta(appIdStr);
-    if (steam?.gameName) name = steam.gameName;
-  }
+  let imageUrl = null;
+  let description = null;
+  const steam = await resolveSteamStoreMeta(appIdStr, prisma);
+  if (isPlaceholderManifestName(name) && steam?.gameName) name = steam.gameName;
+  if (steam?.imageUrl) imageUrl = steam.imageUrl;
+  if (steam?.shortDescription) description = steam.shortDescription;
 
   try {
     const { storageType, s3Key } = await persistManifestZip(appIdStr, zipBuffer, s3Client);
@@ -77,6 +79,8 @@ async function registerManifestLocally(prisma, { appId, gameName, zipBuffer, use
         name,
         fileSize: BigInt(zipBuffer.length),
         storageType,
+        ...(imageUrl ? { imageUrl } : {}),
+        ...(description ? { description } : {}),
         ...(s3Key ? { s3Key } : {}),
         updatedAt: new Date(),
       },
@@ -87,6 +91,8 @@ async function registerManifestLocally(prisma, { appId, gameName, zipBuffer, use
         userId: ownerId,
         storageType,
         s3Key: s3Key || undefined,
+        imageUrl: imageUrl || undefined,
+        description: description || undefined,
         tags: [],
       },
     });

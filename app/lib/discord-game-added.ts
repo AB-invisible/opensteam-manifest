@@ -1,5 +1,5 @@
 import { prisma } from './prisma'
-import { fetchSteamGameName, isPlaceholderManifestName } from './manifest-filename'
+import { fetchSteamStoreMeta, isPlaceholderManifestName } from './manifest-filename'
 
 export const DISCORD_ADDED_GAMES_CHANNEL_KEY = 'DISCORD_ADDED_GAMES_CHANNEL_ID'
 
@@ -43,9 +43,7 @@ function buildGameAddedEmbedPayload({
   const appIdStr = String(appId || '').trim()
   const steamUrl = appIdStr ? `https://store.steampowered.com/app/${appIdStr}` : undefined
   const title = String(gameName || '').trim() || (appIdStr ? `App ${appIdStr}` : 'New Game')
-  const headerImage =
-    imageUrl ||
-    (appIdStr ? `https://cdn.akamai.steamstatic.com/steam/apps/${appIdStr}/header.jpg` : null)
+  const headerImage = String(imageUrl || '').trim() || null
 
   const embed: Record<string, unknown> = {
     title,
@@ -83,8 +81,15 @@ export async function announceGameAdded({
   }
 
   let resolvedName = gameName
-  if (isPlaceholderManifestName(gameName)) {
-    resolvedName = (await fetchSteamGameName(appId)) || gameName
+  let resolvedImage = imageUrl
+  let resolvedDesc = shortDescription
+  if (isPlaceholderManifestName(gameName) || !imageUrl || !shortDescription) {
+    const steam = await fetchSteamStoreMeta(appId)
+    if (isPlaceholderManifestName(gameName)) {
+      resolvedName = steam?.gameName || gameName
+    }
+    if (!resolvedImage) resolvedImage = steam?.imageUrl || null
+    if (!resolvedDesc) resolvedDesc = steam?.shortDescription || null
   }
 
   try {
@@ -95,7 +100,14 @@ export async function announceGameAdded({
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        embeds: [buildGameAddedEmbedPayload({ appId, gameName: resolvedName, imageUrl, shortDescription })],
+        embeds: [
+          buildGameAddedEmbedPayload({
+            appId,
+            gameName: resolvedName,
+            imageUrl: resolvedImage,
+            shortDescription: resolvedDesc,
+          }),
+        ],
       }),
     })
 

@@ -273,7 +273,7 @@ async function handleManifestUploadChannelMessage(message, prisma, opts = {}) {
       const { announceGameAdded, announceGameAddedViaRest } = require('./discord-game-added');
       const { resolveSteamStoreMeta } = require('./steam-store-meta');
 
-      const steamMeta = await resolveSteamStoreMeta(appId);
+      const steamMeta = await resolveSteamStoreMeta(appId, prisma);
       const gameName = steamMeta?.gameName || `App ${appId}`;
 
       const registerResult = await registerManifestLocally(prisma, {
