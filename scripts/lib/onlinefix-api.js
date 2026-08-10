@@ -57,7 +57,13 @@ function searchOnlineFixGames(games, query, { limit = 25, orderBySearch = false 
       .slice(0, limit);
   }
 
-  const matches = games.filter((game) => game.name?.toLowerCase().includes(normalized));
+  const matches = games.filter((game) => {
+    const haystack = [game.name, game.title, game.displayName]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(normalized);
+  });
   matches.sort((a, b) => {
     if (orderBySearch) {
       const searchDiff = (b.searches || 0) - (a.searches || 0);
