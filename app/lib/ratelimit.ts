@@ -240,9 +240,26 @@ export async function checkVelocityRateLimit(
   }
 }
 
+/** Normalized api_usage paths that consume a daily manifest generation. */
+export function isBillableGenerationEndpoint(endpoint: string): boolean {
+  return (
+    endpoint.includes('/generate/') ||
+    endpoint.endsWith('/bulk/generate') ||
+    endpoint === '/api/manifests/generate'
+  )
+}
+
+const billableGenerationEndpointFilter = {
+  OR: [
+    { endpoint: { contains: '/generate/' } },
+    { endpoint: { endsWith: '/bulk/generate' } },
+    { endpoint: '/api/manifests/generate' },
+  ],
+} as const
+
 /**
- * Per-day plan quota: successful responses (200/201) in api_usage since UTC midnight.
- * Shared across all API keys for the same user.
+ * Per-day plan quota: manifest generations since UTC midnight.
+ * Counts billable api_usage rows (generate endpoints) shared across all API keys.
  */
 export async function checkDailyApiQuota(
   userId: string,
@@ -259,7 +276,8 @@ export async function checkDailyApiQuota(
     where: {
       apiKey: { userId },
       createdAt: { gte: todayStart },
-      status: { not: 429 }
+      status: { not: 429 },
+      ...billableGenerationEndpointFilter,
     }
   })
 
@@ -270,7 +288,7 @@ export async function checkDailyApiQuota(
       remaining: 0,
       limit: dailyLimit,
       resetAt,
-      errorReason: `Daily limit of ${dailyLimit} requests exceeded for your account.`
+      errorReason: `Daily limit of ${dailyLimit} generations exceeded for your account.`
     }
   }
   return { allowed: true, remaining, limit: dailyLimit, resetAt }

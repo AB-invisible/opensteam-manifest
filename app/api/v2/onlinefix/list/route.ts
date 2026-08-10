@@ -9,7 +9,7 @@ import { authenticateApiKeyOrAdmin, apiHeaders, isApiAccessAllowed, apiRateLimit
  */
 export async function GET(request: NextRequest) {
   // Authenticate
-  const auth = await authenticateApiKeyOrAdmin(request)
+  const auth = await authenticateApiKeyOrAdmin(request, { skipUsage: true })
   
   if (!auth) {
     return NextResponse.json(

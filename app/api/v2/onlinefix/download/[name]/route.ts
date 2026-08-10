@@ -33,7 +33,7 @@ export async function GET(
 ) {
   const { name } = params
 
-  const auth = await authenticateApiKeyOrAdmin(request)
+  const auth = await authenticateApiKeyOrAdmin(request, { skipUsage: true })
 
   if (!auth) {
     return NextResponse.json(
