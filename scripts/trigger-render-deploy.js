@@ -1,9 +1,21 @@
 #!/usr/bin/env node
 /** Trigger a Render redeploy for manifest-web only (no env patch). */
 require('dotenv').config()
+const fs = require('fs')
+const path = require('path')
 
 const API = 'https://api.render.com/v1'
-const key = process.env.RENDER_API_KEY?.trim()
+
+function getRenderApiKey() {
+  const fromEnv = process.env.RENDER_API_KEY?.trim()
+  if (fromEnv) return fromEnv
+  const cliPath = path.join(process.env.USERPROFILE || process.env.HOME || '', '.render', 'cli.yaml')
+  if (!fs.existsSync(cliPath)) return null
+  const m = fs.readFileSync(cliPath, 'utf8').match(/key:\s*(rnd_[^\s]+)/)
+  return m?.[1] || null
+}
+
+const key = getRenderApiKey()
 if (!key) {
   console.error('RENDER_API_KEY missing')
   process.exit(1)

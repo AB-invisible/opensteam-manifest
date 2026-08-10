@@ -3,6 +3,7 @@ import { Plan } from '@prisma/client'
 export interface PlanLimits {
   webDaily: number
   apiDaily: number
+  apiHourly: number // manifest generations per UTC hour (velocity cap)
   apiBurst: number // requests per 5s or window
   allowRyuu: boolean
   allowMorrenusFallback: boolean
@@ -12,6 +13,7 @@ export const PLAN_CONFIG: Record<Plan, PlanLimits> = {
   FREE: {
     webDaily: 25,
     apiDaily: 50,
+    apiHourly: 15,
     apiBurst: 30, // Increased from 10
     allowRyuu: true,
     allowMorrenusFallback: true,
@@ -19,6 +21,7 @@ export const PLAN_CONFIG: Record<Plan, PlanLimits> = {
   REGULAR: {
     webDaily: 100,
     apiDaily: 1000,
+    apiHourly: 500,
     apiBurst: 200,  // Increased from 60
     allowRyuu: false,
     allowMorrenusFallback: false,
@@ -26,6 +29,7 @@ export const PLAN_CONFIG: Record<Plan, PlanLimits> = {
   PREMIUM: {
     webDaily: 500,
     apiDaily: 5000,
+    apiHourly: 5000,
     apiBurst: 500,   // Increased from 120
     allowRyuu: false,
     allowMorrenusFallback: false,
@@ -33,6 +37,7 @@ export const PLAN_CONFIG: Record<Plan, PlanLimits> = {
   RESELLER: {
     webDaily: 1500,
     apiDaily: 30000,
+    apiHourly: 20000,
     apiBurst: 3000,   // Increased from 1800
     allowRyuu: false,
     allowMorrenusFallback: false,
@@ -40,6 +45,7 @@ export const PLAN_CONFIG: Record<Plan, PlanLimits> = {
   BUSINESS: {
     webDaily: 3000,
     apiDaily: 100000,
+    apiHourly: 20000,
     apiBurst: 5000,   // Increased from 3000
     allowRyuu: false,
     allowMorrenusFallback: false,
@@ -47,6 +53,7 @@ export const PLAN_CONFIG: Record<Plan, PlanLimits> = {
   CUSTOM: {
     webDaily: 10000,
     apiDaily: 1000000,
+    apiHourly: 20000,
     apiBurst: 10000,  // Increased from 6000
     allowRyuu: false,
     allowMorrenusFallback: false,
@@ -78,6 +85,14 @@ export function getApiDailyLimit(user: { plan: Plan; customDailyLimit?: number |
     return user.customDailyLimit
   }
   return PLAN_CONFIG[user.plan]?.apiDaily || 15
+}
+
+/**
+ * Gets the hourly manifest-generation velocity cap for a user (plan-based).
+ * Stored apiKey.rateLimit is kept in sync but plan limits take precedence at auth time.
+ */
+export function getApiHourlyLimit(user: { plan: Plan }): number {
+  return PLAN_CONFIG[user.plan]?.apiHourly || 15
 }
 
 /**

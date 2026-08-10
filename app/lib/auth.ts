@@ -11,7 +11,7 @@ import {
 import { User, Plan } from '@prisma/client'
 import { Sentinel, checkApiBurstAnomaly } from './sentinel'
 import { getClientIp, getClientCountry } from './ip'
-import { getApiDailyLimit, getApiBurstLimit } from './config'
+import { getApiDailyLimit, getApiBurstLimit, getApiHourlyLimit } from './config'
 import { resolveAccessControlAllowOrigin } from './cors-origin'
 import crypto from 'crypto'
 import { resolveApiKeyFromRequest, safeKeyEquals } from './api-key-middleware'
@@ -170,6 +170,14 @@ export async function authenticateApiKey(
   // Custom overrides always belong to the user record for now
   const dailyLimit = getApiDailyLimit({ ...keyRecord.user, plan: effectivePlan })
   const maxBurst = getApiBurstLimit({ ...keyRecord.user, plan: effectivePlan })
+  const maxHourly = getApiHourlyLimit({ ...keyRecord.user, plan: effectivePlan })
+
+  // Keep stored key hourly cap aligned with the user's current plan (legacy keys may still say 15).
+  if (keyRecord.rateLimit < maxHourly) {
+    prisma.apiKey
+      .update({ where: { id: keyRecord.id }, data: { rateLimit: maxHourly } })
+      .catch((e: any) => console.error('[Auth] Key rateLimit heal failed:', e.message))
+  }
 
   // Get client info for logging
   const ip = getClientIp(request)
@@ -236,7 +244,7 @@ export async function authenticateApiKey(
         } satisfies RateLimitResult)
       : checkVelocityRateLimit(
           keyRecord.userId,
-          keyRecord.rateLimit,
+          maxHourly,
           maxBurst,
           ip,
           appId || undefined,
