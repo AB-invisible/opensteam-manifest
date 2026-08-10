@@ -2,6 +2,7 @@
  * Post a DepotBox-style embed when a new manifest/game is added to OpenSteam.
  */
 const axios = require('axios');
+const { enrichAnnouncementPayload } = require('./steam-store-meta');
 
 const DISCORD_ADDED_GAMES_CHANNEL_KEY = 'DISCORD_ADDED_GAMES_CHANNEL_ID';
 
@@ -64,7 +65,7 @@ function buildGameAddedEmbedPayload({ appId, gameName, imageUrl, shortDescriptio
   return embed;
 }
 
-async function announceGameAddedViaRest(prisma, { appId, gameName, imageUrl, shortDescription } = {}) {
+async function announceGameAddedViaRest(prisma, payload = {}) {
   const channelId = await getAddedGamesChannelId(prisma);
   if (!channelId) return { ok: false, skipped: true, reason: 'no_channel' };
 
@@ -74,10 +75,12 @@ async function announceGameAddedViaRest(prisma, { appId, gameName, imageUrl, sho
     return { ok: false, skipped: true, reason: 'no_token' };
   }
 
+  const enriched = await enrichAnnouncementPayload(payload);
+
   try {
     const res = await axios.post(
       `https://discord.com/api/v10/channels/${channelId}/messages`,
-      { embeds: [buildGameAddedEmbedPayload({ appId, gameName, imageUrl, shortDescription })] },
+      { embeds: [buildGameAddedEmbedPayload(enriched)] },
       {
         headers: {
           Authorization: `Bot ${token}`,
@@ -103,33 +106,35 @@ async function announceGameAddedViaRest(prisma, { appId, gameName, imageUrl, sho
 /**
  * Prefer discord.js client when the bot process has one; fall back to REST.
  */
-async function announceGameAdded(client, prisma, { appId, gameName, imageUrl, shortDescription } = {}) {
+async function announceGameAdded(client, prisma, payload = {}) {
   const channelId = await getAddedGamesChannelId(prisma);
   if (!channelId) return { ok: false, skipped: true, reason: 'no_channel' };
+
+  const enriched = await enrichAnnouncementPayload(payload);
 
   if (client?.channels?.fetch) {
     try {
       const { EmbedBuilder } = require('discord.js');
       const channel = await client.channels.fetch(channelId);
       if (!channel || !channel.isTextBased?.() || typeof channel.send !== 'function') {
-        return announceGameAddedViaRest(prisma, { appId, gameName, imageUrl, shortDescription });
+        return announceGameAddedViaRest(prisma, enriched);
       }
 
-      const payload = buildGameAddedEmbedPayload({ appId, gameName, imageUrl, shortDescription });
+      const embedPayload = buildGameAddedEmbedPayload(enriched);
       const embed = new EmbedBuilder()
-        .setTitle(payload.title)
-        .setDescription(payload.description)
-        .setColor(payload.color)
-        .setFooter(payload.footer)
-        .setTimestamp(new Date(payload.timestamp));
+        .setTitle(embedPayload.title)
+        .setDescription(embedPayload.description)
+        .setColor(embedPayload.color)
+        .setFooter(embedPayload.footer)
+        .setTimestamp(new Date(embedPayload.timestamp));
 
-      if (payload.url) embed.setURL(payload.url);
-      if (payload.fields?.length) {
-        for (const field of payload.fields) {
+      if (embedPayload.url) embed.setURL(embedPayload.url);
+      if (embedPayload.fields?.length) {
+        for (const field of embedPayload.fields) {
           embed.addFields({ name: field.name, value: field.value, inline: field.inline ?? false });
         }
       }
-      if (payload.image?.url) embed.setImage(payload.image.url);
+      if (embedPayload.image?.url) embed.setImage(embedPayload.image.url);
 
       await channel.send({ embeds: [embed] });
       return { ok: true };
@@ -138,7 +143,7 @@ async function announceGameAdded(client, prisma, { appId, gameName, imageUrl, sh
     }
   }
 
-  return announceGameAddedViaRest(prisma, { appId, gameName, imageUrl, shortDescription });
+  return announceGameAddedViaRest(prisma, enriched);
 }
 
 module.exports = {

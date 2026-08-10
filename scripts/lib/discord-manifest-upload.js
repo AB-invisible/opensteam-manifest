@@ -271,10 +271,14 @@ async function handleManifestUploadChannelMessage(message, prisma, opts = {}) {
       const buffer = await downloadAttachment(attachment.url, botToken);
       const { registerManifestLocally } = require('./register-manifest');
       const { announceGameAdded, announceGameAddedViaRest } = require('./discord-game-added');
+      const { resolveSteamStoreMeta } = require('./steam-store-meta');
+
+      const steamMeta = await resolveSteamStoreMeta(appId);
+      const gameName = steamMeta?.gameName || `App ${appId}`;
 
       const registerResult = await registerManifestLocally(prisma, {
         appId,
-        gameName: `App ${appId}`,
+        gameName,
         zipBuffer: buffer,
         s3Client: opts.s3Client,
       });
@@ -282,10 +286,15 @@ async function handleManifestUploadChannelMessage(message, prisma, opts = {}) {
       if (registerResult.ok) {
         uploadAttempts.set(attemptKey, { status: 'done', startedAt: Date.now() });
         anyOk = true;
-        lines.push(`✅ **${appId}** has been uploaded.`);
+        lines.push(`✅ **${gameName}** (\`${appId}\`) has been uploaded.`);
 
         if (registerResult.isNew) {
-          const payload = { appId, gameName: `App ${appId}` };
+          const payload = {
+            appId,
+            gameName,
+            imageUrl: steamMeta?.imageUrl,
+            shortDescription: steamMeta?.shortDescription,
+          };
           const announce = opts.client
             ? await announceGameAdded(opts.client, prisma, payload)
             : await announceGameAddedViaRest(prisma, payload);

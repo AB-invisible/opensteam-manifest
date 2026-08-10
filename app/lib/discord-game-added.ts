@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+import { fetchSteamGameName, isPlaceholderManifestName } from './manifest-filename'
 
 export const DISCORD_ADDED_GAMES_CHANNEL_KEY = 'DISCORD_ADDED_GAMES_CHANNEL_ID'
 
@@ -81,6 +82,11 @@ export async function announceGameAdded({
     return { ok: false, skipped: true as const, reason: 'no_token' }
   }
 
+  let resolvedName = gameName
+  if (isPlaceholderManifestName(gameName)) {
+    resolvedName = (await fetchSteamGameName(appId)) || gameName
+  }
+
   try {
     const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
       method: 'POST',
@@ -89,7 +95,7 @@ export async function announceGameAdded({
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        embeds: [buildGameAddedEmbedPayload({ appId, gameName, imageUrl, shortDescription })],
+        embeds: [buildGameAddedEmbedPayload({ appId, gameName: resolvedName, imageUrl, shortDescription })],
       }),
     })
 

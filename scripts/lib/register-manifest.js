@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { resolveSyncUserId } = require('./sync-storage-manifests');
+const { isPlaceholderManifestName, resolveSteamStoreMeta } = require('./steam-store-meta');
 
 function getStoragePath() {
   return process.env.STORAGE_PATH || path.join(__dirname, '../../data');
@@ -62,7 +63,11 @@ async function registerManifestLocally(prisma, { appId, gameName, zipBuffer, use
   const isNew = !existing;
 
   const ownerId = userId || (await resolveSyncUserId(prisma));
-  const name = String(gameName || `App ${appIdStr}`).slice(0, 200);
+  let name = String(gameName || `App ${appIdStr}`).slice(0, 200);
+  if (isPlaceholderManifestName(name)) {
+    const steam = await resolveSteamStoreMeta(appIdStr);
+    if (steam?.gameName) name = steam.gameName;
+  }
 
   try {
     const { storageType, s3Key } = await persistManifestZip(appIdStr, zipBuffer, s3Client);
