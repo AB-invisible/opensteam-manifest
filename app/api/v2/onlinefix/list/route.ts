@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const games = await prisma.onlineFixGame.findMany({
+    let games = await prisma.onlineFixGame.findMany({
       select: {
         name: true,
         fileName: true,
@@ -36,11 +36,32 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    if (games.length === 0) {
+      const { ensureOnlineFixCatalog } = require('@/scripts/lib/onlinefix-s3')
+      await ensureOnlineFixCatalog({ prismaClient: prisma }).catch((err) => {
+        console.warn('[API OnlineFix List] Catalog bootstrap failed:', err?.message || err)
+      })
+
+      games = await prisma.onlineFixGame.findMany({
+        select: {
+          name: true,
+          fileName: true,
+          fileSize: true,
+          searches: true,
+          lastUpdated: true,
+        },
+        orderBy: {
+          name: 'asc'
+        }
+      })
+    }
+
     return NextResponse.json(
       { 
         success: true,
         count: games.length,
-        games 
+        games,
+        fixes: games,
       },
       { status: 200, headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) }
     )

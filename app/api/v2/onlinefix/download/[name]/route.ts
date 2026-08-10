@@ -38,6 +38,8 @@ export async function GET(
   const decodedName = decodeURIComponent(name).trim()
 
   try {
+    const { ensureOnlineFixCatalog } = require('@/scripts/lib/onlinefix-s3')
+
     // 1. Try exact match first (case-insensitive)
     let games = await prisma.onlineFixGame.findMany({
       where: {

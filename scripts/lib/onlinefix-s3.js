@@ -349,6 +349,115 @@ async function syncOnlineFixIndexFromS3({ prismaClient, prefix } = {}) {
   };
 }
 
+async function scrapePeronDepotGames() {
+  const response = await axios.get('https://api.perondepot.xyz/', { timeout: 15000 });
+  const html = String(response.data || '');
+  const lines = html.split('\n');
+  const scrapedGames = [];
+
+  for (const line of lines) {
+    if (!line.trim() || !line.includes('<a href="')) continue;
+
+    const hrefStart = line.indexOf('<a href="') + 9;
+    const hrefEnd = line.indexOf('"', hrefStart);
+    if (hrefStart === 8 || hrefEnd === -1) continue;
+
+    const href = line.substring(hrefStart, hrefEnd);
+    const textStart = line.indexOf('>', hrefEnd) + 1;
+    const textEnd = line.indexOf('<', textStart);
+    if (textStart === 0 || textEnd === -1) continue;
+
+    const archiveName = line.substring(textStart, textEnd).trim();
+    if (!archiveName || archiveName.includes('..') || archiveName.includes('docker') || archiveName.includes('nginx')) continue;
+    if (!archiveName.endsWith('.rar') && !archiveName.endsWith('.zip')) continue;
+
+    const cleanName = archiveName.replace(/\.(rar|zip)$/i, '').replace(/_/g, ' ').trim();
+    const sizeMatch = line.substring(textEnd).match(/(\d+(?:\.\d+)?)\s*(KB|MB|GB|TB|K|M|G|T)/i);
+
+    scrapedGames.push({
+      name: cleanName,
+      fileName: archiveName,
+      fileUrl: `https://api.perondepot.xyz/${href}`,
+      fileSize: sizeMatch ? sizeMatch[0] : 'Unknown',
+    });
+  }
+
+  return scrapedGames;
+}
+
+async function syncOnlineFixIndexFromPeronDepot({ prismaClient } = {}) {
+  const db = prismaClient || getPrismaClient();
+  const scrapedGames = await scrapePeronDepotGames();
+  const now = new Date();
+  let added = 0;
+  let updated = 0;
+
+  for (const game of scrapedGames) {
+    const existing = await db.onlineFixGame.findUnique({
+      where: { fileName: game.fileName },
+      select: { id: true, fileUrl: true },
+    });
+
+    const data = {
+      name: game.name,
+      fileName: game.fileName,
+      fileUrl: game.fileUrl,
+      fileSize: game.fileSize,
+      indexedAt: now,
+    };
+
+    if (existing) {
+      await db.onlineFixGame.update({
+        where: { id: existing.id },
+        data,
+      });
+      updated += 1;
+    } else {
+      await db.onlineFixGame.create({ data });
+      added += 1;
+    }
+  }
+
+  return {
+    found: scrapedGames.length,
+    added,
+    updated,
+  };
+}
+
+let catalogEnsurePromise = null;
+
+async function ensureOnlineFixCatalog({ prismaClient } = {}) {
+  const db = prismaClient || getPrismaClient();
+  const existingCount = await db.onlineFixGame.count();
+  if (existingCount > 0) {
+    return { source: 'db', count: existingCount };
+  }
+
+  if (catalogEnsurePromise) {
+    await catalogEnsurePromise.catch(() => {});
+    return { source: 'pending', count: await db.onlineFixGame.count() };
+  }
+
+  catalogEnsurePromise = (async () => {
+    try {
+      const s3Result = await syncOnlineFixIndexFromS3({ prismaClient: db });
+      const afterS3 = await db.onlineFixGame.count();
+      if (afterS3 > 0) {
+        return { source: 's3', count: afterS3, ...s3Result };
+      }
+
+      const depotResult = await syncOnlineFixIndexFromPeronDepot({ prismaClient: db });
+      const afterDepot = await db.onlineFixGame.count();
+      return { source: 'perondepot', count: afterDepot, ...depotResult };
+    } finally {
+      catalogEnsurePromise = null;
+    }
+  })();
+
+  return catalogEnsurePromise;
+}
+
 /**
  * Streams an OnlineFix game file from PeronDepot to S3 and updates the database.
  * Designed to run asynchronously in the background.
@@ -432,6 +541,8 @@ module.exports = {
   listOnlineFixObjects,
   listOnlineFixGamesFromS3,
   syncOnlineFixIndexFromS3,
+  syncOnlineFixIndexFromPeronDepot,
+  ensureOnlineFixCatalog,
   onlineFixGameFromS3Object,
   cleanOnlineFixName,
   encodeS3KeyForUrl,
