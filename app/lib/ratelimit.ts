@@ -257,6 +257,21 @@ const billableGenerationEndpointFilter = {
   ],
 } as const
 
+/** Manifest generations consumed today (billable API calls only). */
+export async function countDailyBillableGenerations(userId: string): Promise<number> {
+  const todayStart = new Date()
+  todayStart.setUTCHours(0, 0, 0, 0)
+
+  return prisma.apiUsage.count({
+    where: {
+      apiKey: { userId },
+      createdAt: { gte: todayStart },
+      status: { not: 429 },
+      ...billableGenerationEndpointFilter,
+    },
+  })
+}
+
 /**
  * Per-day plan quota: manifest generations since UTC midnight.
  * Counts billable api_usage rows (generate endpoints) shared across all API keys.
@@ -272,14 +287,7 @@ export async function checkDailyApiQuota(
   todayStart.setUTCHours(0, 0, 0, 0)
   const resetAt = endOfUtcDayResetMs(now)
 
-  const used = await prisma.apiUsage.count({
-    where: {
-      apiKey: { userId },
-      createdAt: { gte: todayStart },
-      status: { not: 429 },
-      ...billableGenerationEndpointFilter,
-    }
-  })
+  const used = await countDailyBillableGenerations(userId)
 
   const remaining = Math.max(0, dailyLimit - used)
   if (enforce && used >= dailyLimit) {

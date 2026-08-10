@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateApiKey, apiHeaders } from '@/app/lib/auth'
 import { getDiscordAccessTokenForApi } from '@/app/lib/discord-oauth-tokens'
+import { countDailyBillableGenerations } from '@/app/lib/ratelimit'
 
 /**
  * GET /api/v2/stats
@@ -17,7 +18,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const todayUsage = Math.max(0, auth.dailyQuota.limit - auth.dailyQuota.remaining)
+    const todayUsage = await countDailyBillableGenerations(auth.user.id)
+    const remaining = Math.max(0, auth.dailyQuota.limit - todayUsage)
+    const dailyQuota = { ...auth.dailyQuota, remaining }
     const discordAccessToken = await getDiscordAccessTokenForApi({
       discordId: auth.user.discordId,
       discordAccessToken: auth.user.discordAccessToken,
@@ -39,7 +42,7 @@ export async function GET(request: NextRequest) {
         usage: {
           today: todayUsage,
           limit: auth.dailyQuota.limit,
-          remaining: auth.dailyQuota.remaining,
+          remaining,
           resetAt: auth.dailyQuota.resetAt,
         },
         rateLimit: {
@@ -48,7 +51,7 @@ export async function GET(request: NextRequest) {
           resetAt: auth.rateLimit.resetAt,
         },
       },
-      { headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) }
+      { headers: apiHeaders(auth.rateLimit, dailyQuota, request.headers.get('Origin')) }
     )
   } catch (error) {
     console.error('[/api/v2/stats]', error)

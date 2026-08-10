@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/app/lib/prisma'
 import { authenticateApiKey, apiHeaders, isApiAccessAllowed, apiRateLimitResponse } from '@/app/lib/auth'
 import { getDiscordAccessTokenForApi } from '@/app/lib/discord-oauth-tokens'
+import { countDailyBillableGenerations } from '@/app/lib/ratelimit'
 
 /**
  * POST /api/v2/activate
@@ -110,6 +111,10 @@ export async function POST(
       discordRefreshToken: auth.user.discordRefreshToken,
     })
 
+    const todayUsage = await countDailyBillableGenerations(auth.user.id)
+    const remaining = Math.max(0, auth.dailyQuota.limit - todayUsage)
+    const dailyQuota = { ...auth.dailyQuota, remaining }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -125,12 +130,12 @@ export async function POST(
         }
       },
       usage: {
-        today: Math.max(0, auth.dailyQuota.limit - auth.dailyQuota.remaining),
+        today: todayUsage,
         limit: auth.dailyQuota.limit,
-        remaining: auth.dailyQuota.remaining,
+        remaining,
         resetAt: auth.dailyQuota.resetAt
       }
-    }, { headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) })
+    }, { headers: apiHeaders(auth.rateLimit, dailyQuota, request.headers.get('Origin')) })
 
   } catch (error) {
     console.error('[/api/v2/activate] error:', error)
