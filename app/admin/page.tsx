@@ -1470,7 +1470,7 @@ export default function AdminDashboard() {
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push('/')}>
             <div className="hover:scale-110 transition-transform">
-              <img src="/favicon.ico" alt="OpenSteam" className="h-7 w-7" />
+              <img src="/opensteam.png" alt="OpenSteam" className="h-8 w-8 rounded-full object-contain ring-1 ring-cyan-400/30" />
             </div>
             <span className="text-xl font-bold text-white hidden sm:block">OpenSteam</span>
           </div>
