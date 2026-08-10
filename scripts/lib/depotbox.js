@@ -233,12 +233,15 @@ async function fetchManifestFromDepotBox(appId, options = {}) {
     return { success: false, error: 'DepotBox response was not a valid manifest archive.' };
   }
 
+  const { cleanManifestZip } = require('./clean-manifest');
+  const cleanedZipBuffer = await cleanManifestZip(zipBuffer);
+
   const filename =
     parseFilenameFromDisposition(download.headers?.['content-disposition'], statusBody?.finalUserZipName || `${appIdValue}.zip`);
 
   return {
     success: true,
-    zipBuffer,
+    zipBuffer: cleanedZipBuffer,
     filename,
     gameName: statusBody?.gameName,
     source: 'DEPOTBOX',

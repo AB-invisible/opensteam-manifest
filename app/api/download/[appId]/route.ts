@@ -3,8 +3,8 @@ import { prisma } from '@/app/lib/prisma'
 import { authenticateApiKey, apiHeaders, isApiAccessAllowed, apiRateLimitResponse, AuthResult } from '@/app/lib/auth'
 import { buildRateLimitDenial, webRateLimitResponse } from '@/app/lib/rate-limit-denial'
 import { checkWebDailyQuota, webQuotaHeaders } from '@/app/lib/ratelimit'
-import { getManifestStream, getManifestBuffer } from '@/app/lib/storage'
-import { cleanManifestZip } from '@/app/lib/clean-manifest'
+import { getManifestBuffer } from '@/app/lib/storage'
+import { prepareCleanManifestZip, manifestZipAttachmentHeaders } from '@/app/lib/deliver-manifest'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/lib/auth-options'
 import { safeManifestFilename, isPlaceholderManifestName, fetchSteamGameName } from '@/app/lib/manifest-filename'
@@ -93,18 +93,20 @@ export async function GET(
       }).catch(() => {})
     }
 
-    // Heal older zips that were uploaded BEFORE the upload-time cleaner went live.
-    // No-op (returns the same buffer) if the lua is already clean.
-    const cleanedBuffer = await cleanManifestZip(storageBuffer)
+    const cleanedBuffer = await prepareCleanManifestZip(appId, storageBuffer)
+    if (!cleanedBuffer) {
+      return NextResponse.json(
+        { error: `No manifest found for app ID: ${appId}` },
+        { status: 404, headers: bearerAuth ? apiHeaders(bearerAuth.rateLimit, bearerAuth.dailyQuota, request.headers.get('Origin')) : apiHeaders(undefined, undefined, request.headers.get('Origin')) }
+      )
+    }
 
     return new NextResponse(new Uint8Array(cleanedBuffer), {
-      headers: {
-        ...(bearerAuth ? apiHeaders(bearerAuth.rateLimit, bearerAuth.dailyQuota, request.headers.get('Origin')) : apiHeaders(undefined, undefined, request.headers.get('Origin'))),
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${safeManifestFilename(resolvedName, appId)}"`,
-        'Content-Length': String(cleanedBuffer.length),
-        'Cache-Control': 'private, max-age=3600',
-      }
+      headers: manifestZipAttachmentHeaders(
+        safeManifestFilename(resolvedName, appId),
+        cleanedBuffer,
+        bearerAuth ? apiHeaders(bearerAuth.rateLimit, bearerAuth.dailyQuota, request.headers.get('Origin')) : apiHeaders(undefined, undefined, request.headers.get('Origin')),
+      ),
     })
   }
 
@@ -158,23 +160,28 @@ export async function GET(
       data: { userId: dbUser.id, appId: appId, gameName: `App ${appId}` }
     }).catch(() => {})
 
-    // Return the upstream buffer directly — try Steam for a proper filename
+    // Return cleaned upstream buffer — try Steam for a proper filename
     const upstreamName = await fetchSteamGameName(appId)
-    return new NextResponse(new Uint8Array(up.zipBuffer), {
-      headers: {
-        ...(bearerAuth ? apiHeaders(bearerAuth.rateLimit, bearerAuth.dailyQuota, request.headers.get('Origin')) : apiHeaders(undefined, undefined, request.headers.get('Origin'))),
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${safeManifestFilename(upstreamName, appId)}"`,
-        'Content-Length': String(up.zipBuffer.length),
-        'Cache-Control': 'private, max-age=3600',
-      }
+    const cleanedBuffer = await prepareCleanManifestZip(appId, up.zipBuffer)
+    if (!cleanedBuffer) {
+      return NextResponse.json(
+        { error: `Zip file not found for app ID: ${appId} and upstream fetch failed.` },
+        { status: 404, headers: bearerAuth ? apiHeaders(bearerAuth.rateLimit, bearerAuth.dailyQuota, request.headers.get('Origin')) : apiHeaders(undefined, undefined, request.headers.get('Origin')) }
+      )
+    }
+    return new NextResponse(new Uint8Array(cleanedBuffer), {
+      headers: manifestZipAttachmentHeaders(
+        safeManifestFilename(upstreamName, appId),
+        cleanedBuffer,
+        bearerAuth ? apiHeaders(bearerAuth.rateLimit, bearerAuth.dailyQuota, request.headers.get('Origin')) : apiHeaders(undefined, undefined, request.headers.get('Origin')),
+      ),
     })
   }
 
-  // 3. Get manifest stream (Local or S3)
-  const { body, contentLength: streamLength } = await getManifestStream(appId)
-  
-  if (!body) {
+  // 3. Serve from storage with OpenSteam credit applied on delivery
+  const cleanedBuffer = await prepareCleanManifestZip(appId)
+
+  if (!cleanedBuffer) {
     const gateUser = bearerAuth?.user ?? dbUser
     if (!gateUser) {
       return NextResponse.json(
@@ -201,7 +208,7 @@ export async function GET(
       )
     }
 
-    // Return the upstream buffer directly — heal name if it's still a placeholder
+    // Return cleaned upstream buffer — heal name if it's still a placeholder
     let upstreamName = manifest.name
     if (isPlaceholderManifestName(upstreamName)) {
       const steamName = await fetchSteamGameName(appId)
@@ -210,18 +217,21 @@ export async function GET(
         prisma.manifest.update({ where: { id: manifest.id }, data: { name: steamName } }).catch(() => {})
       }
     }
-    return new NextResponse(new Uint8Array(up.zipBuffer), {
-      headers: {
-        ...(bearerAuth ? apiHeaders(bearerAuth.rateLimit, bearerAuth.dailyQuota, request.headers.get('Origin')) : apiHeaders(undefined, undefined, request.headers.get('Origin'))),
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${safeManifestFilename(upstreamName, appId)}"`,
-        'Content-Length': String(up.zipBuffer.length),
-        'Cache-Control': 'private, max-age=3600',
-      }
+    const cleanedUpstream = await prepareCleanManifestZip(appId, up.zipBuffer)
+    if (!cleanedUpstream) {
+      return NextResponse.json(
+        { error: `Zip file not found for app ID: ${appId} and upstream fetch failed.` },
+        { status: 404, headers: bearerAuth ? apiHeaders(bearerAuth.rateLimit, bearerAuth.dailyQuota, request.headers.get('Origin')) : apiHeaders(undefined, undefined, request.headers.get('Origin')) }
+      )
+    }
+    return new NextResponse(new Uint8Array(cleanedUpstream), {
+      headers: manifestZipAttachmentHeaders(
+        safeManifestFilename(upstreamName, appId),
+        cleanedUpstream,
+        bearerAuth ? apiHeaders(bearerAuth.rateLimit, bearerAuth.dailyQuota, request.headers.get('Origin')) : apiHeaders(undefined, undefined, request.headers.get('Origin')),
+      ),
     })
   }
-
-  const contentLength = streamLength || (manifest.fileSize ? Number(manifest.fileSize) : null)
 
   // Increment download counter (fire-and-forget)
   prisma.manifest.update({
@@ -239,29 +249,11 @@ export async function GET(
     }
   }
 
-  // Use standard Web ReadableStream for Next.js 14 compatibility
-  // Node.js 17+ supports Readable.toWeb()
-  let responseBody: any = body;
-  try {
-    const streamModule = await import('stream');
-    const Readable = streamModule.Readable || (streamModule as any).default?.Readable;
-    
-    if (typeof Readable === 'function' && body instanceof Readable) {
-      if (typeof (Readable as any).toWeb === 'function') {
-        responseBody = (Readable as any).toWeb(body);
-      }
-    }
-  } catch (err) {
-    console.warn('[Download] Failed to convert Node stream to Web stream:', err);
-  }
-
-  return new NextResponse(responseBody, {
-    headers: {
-      ...(bearerAuth ? apiHeaders(bearerAuth.rateLimit, bearerAuth.dailyQuota, request.headers.get('Origin')) : apiHeaders(undefined, undefined, request.headers.get('Origin'))),
-      'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="${safeManifestFilename(finalName, appId)}"`,
-      ...(contentLength ? { 'Content-Length': String(contentLength) } : {}),
-      'Cache-Control': 'private, max-age=3600',
-    }
+  return new NextResponse(new Uint8Array(cleanedBuffer), {
+    headers: manifestZipAttachmentHeaders(
+      safeManifestFilename(finalName, appId),
+      cleanedBuffer,
+      bearerAuth ? apiHeaders(bearerAuth.rateLimit, bearerAuth.dailyQuota, request.headers.get('Origin')) : apiHeaders(undefined, undefined, request.headers.get('Origin')),
+    ),
   })
 }

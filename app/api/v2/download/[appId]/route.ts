@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/app/lib/prisma'
 import { authenticateApiKey, apiHeaders, isApiAccessAllowed, apiRateLimitResponse } from '@/app/lib/auth'
-import { getManifestStream } from '@/app/lib/storage'
+import { prepareCleanManifestZip, manifestZipAttachmentHeaders } from '@/app/lib/deliver-manifest'
 
 /**
  * GET /api/v2/download/[appId]
@@ -36,6 +36,8 @@ export async function GET(
     )
   }
 
+  const extraHeaders = apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin'))
+
   // 3. Check manifest exists in database
   const manifest = await prisma.manifest.findUnique({
     where: { steamAppId: appId }
@@ -50,34 +52,33 @@ export async function GET(
     if (!up.ok && up.reason === 'forbidden') {
       return NextResponse.json(
         { error: 'Manifest not found and auto-gen not available for your plan.' },
-        { status: 403, headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) }
+        { status: 403, headers: extraHeaders }
       )
     }
     if (!up.ok) {
       return NextResponse.json(
         { error: `Manifest not found for App ID: ${appId} in any source.` },
-        { status: 404, headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) }
+        { status: 404, headers: extraHeaders }
       )
     }
 
-    // Return the upstream buffer directly
-    const safeName = `App_${appId}`
-    return new NextResponse(new Uint8Array(up.zipBuffer), {
-      headers: {
-        ...apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')),
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${safeName}.zip"`,
-        'Content-Length': String(up.zipBuffer.length),
-        'Cache-Control': 'private, max-age=3600',
-      }
+    const cleanedBuffer = await prepareCleanManifestZip(appId, up.zipBuffer)
+    if (!cleanedBuffer) {
+      return NextResponse.json(
+        { error: `Manifest not found for App ID: ${appId} in any source.` },
+        { status: 404, headers: extraHeaders }
+      )
+    }
+
+    return new NextResponse(new Uint8Array(cleanedBuffer), {
+      headers: manifestZipAttachmentHeaders(`App_${appId}.zip`, cleanedBuffer, extraHeaders),
     })
   }
 
-  // 4. Get manifest stream (Local or S3)
-  const { body, contentLength: streamLength } = await getManifestStream(appId)
-  
-  if (!body) {
-    // Fallback: Proxy from upstream if not stored
+  // 4. Load from storage (or upstream fallback) and clean on serve
+  let cleanedBuffer = await prepareCleanManifestZip(appId)
+
+  if (!cleanedBuffer) {
     console.log(`[API Path Download] ${appId} not in storage. Fetching from upstream...`)
     const { fetchManifestZipWithPlanGates } = await import('@/app/lib/upstream-manifest-fetch')
 
@@ -85,29 +86,24 @@ export async function GET(
     if (!up.ok && up.reason === 'forbidden') {
       return NextResponse.json(
         { error: 'Stored file missing and real-time fetch is not enabled for your plan (Ryuu / Morrenus).' },
-        { status: 403, headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) }
+        { status: 403, headers: extraHeaders }
       )
     }
     if (!up.ok) {
       return NextResponse.json(
         { error: `Zip file not found in storage for app ID: ${appId} and upstream fetch failed.` },
-        { status: 404, headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) }
+        { status: 404, headers: extraHeaders }
       )
     }
 
-    const safeName = manifest.name.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 64)
-    return new NextResponse(new Uint8Array(up.zipBuffer), {
-      headers: {
-        ...apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')),
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${safeName}_${appId}.zip"`,
-        'Content-Length': String(up.zipBuffer.length),
-        'Cache-Control': 'private, max-age=3600',
-      }
-    })
+    cleanedBuffer = await prepareCleanManifestZip(appId, up.zipBuffer)
+    if (!cleanedBuffer) {
+      return NextResponse.json(
+        { error: `Zip file not found in storage for app ID: ${appId} and upstream fetch failed.` },
+        { status: 404, headers: extraHeaders }
+      )
+    }
   }
-
-  const contentLength = streamLength || (manifest.fileSize ? Number(manifest.fileSize) : null)
 
   // Increment download counter (fire-and-forget)
   prisma.manifest.update({
@@ -116,30 +112,8 @@ export async function GET(
   }).catch(() => {})
 
   const safeName = manifest.name.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 64)
-  
-  // Use standard Web ReadableStream for Next.js 14 compatibility
-  // Node.js 17+ supports Readable.toWeb()
-  let responseBody: any = body;
-  try {
-    const streamModule = await import('stream');
-    const Readable = streamModule.Readable || (streamModule as any).default?.Readable;
-    
-    if (typeof Readable === 'function' && body instanceof Readable) {
-      if (typeof (Readable as any).toWeb === 'function') {
-        responseBody = (Readable as any).toWeb(body);
-      }
-    }
-  } catch (err) {
-    console.warn('[API Download] Failed to convert Node stream to Web stream:', err);
-  }
 
-  return new NextResponse(responseBody, {
-    headers: {
-      ...apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')),
-      'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="${safeName}_${appId}.zip"`,
-      ...(contentLength ? { 'Content-Length': String(contentLength) } : {}),
-      'Cache-Control': 'private, max-age=3600',
-    }
+  return new NextResponse(new Uint8Array(cleanedBuffer), {
+    headers: manifestZipAttachmentHeaders(`${safeName}_${appId}.zip`, cleanedBuffer, extraHeaders),
   })
 }

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/app/lib/prisma'
 import { authenticateApiKey, apiHeaders, isApiAccessAllowed, apiRateLimitResponse } from '@/app/lib/auth'
-import { getManifestStream } from '@/app/lib/storage'
 import { fetchManifestFromMorrenus } from '@/app/lib/morrenus'
 import { fetchManifestFromRyuu } from '@/app/lib/ryuu'
 import { canAccessRyuu, canUseMorrenusFallback } from '@/app/lib/config'
 import { getPublicAppUrl } from '@/app/lib/public-app-url'
 import { sendWebhook } from '@/app/lib/webhooks'
 import { fetchSteamGameName } from '@/app/lib/manifest-filename'
+import { prepareCleanManifestZip, manifestZipAttachmentHeaders } from '@/app/lib/deliver-manifest'
 
 export async function GET(
   request: NextRequest,
@@ -158,9 +158,9 @@ export async function GET(
     enrichLog(auth.usageLogId, 200, appId, manifest.name)
 
     if (format === 'zip') {
-      const { body, contentLength: streamLength } = await getManifestStream(appId)
-      
-      if (!body) {
+      const cleanedBuffer = await prepareCleanManifestZip(appId)
+
+      if (!cleanedBuffer) {
         return NextResponse.json(
           { error: `Zip file not found for app ID: ${appId}` },
           { status: 404, headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) }
@@ -169,16 +169,13 @@ export async function GET(
 
       prisma.manifest.update({ where: { id: manifest.id }, data: { downloads: { increment: 1 } } }).catch(() => {})
       const safeName = manifest.name.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 64)
-      
-      const contentLength = streamLength || (manifest.fileSize ? Number(manifest.fileSize) : null)
 
-      return new NextResponse(body, {
-        headers: {
-          ...apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')),
-          'Content-Type': 'application/zip',
-          'Content-Disposition': `attachment; filename="${safeName}_${appId}.zip"`,
-          ...(contentLength ? { 'Content-Length': String(contentLength) } : {}),
-        },
+      return new NextResponse(new Uint8Array(cleanedBuffer), {
+        headers: manifestZipAttachmentHeaders(
+          `${safeName}_${appId}.zip`,
+          cleanedBuffer,
+          apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')),
+        ),
       })
     }
 

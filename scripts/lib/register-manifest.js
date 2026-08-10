@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { resolveSyncUserId } = require('./sync-storage-manifests');
 const { isPlaceholderManifestName, resolveSteamStoreMeta } = require('./steam-store-meta');
+const { cleanManifestZip } = require('./clean-manifest');
 
 function getStoragePath() {
   return process.env.STORAGE_PATH || path.join(__dirname, '../../data');
@@ -72,12 +73,13 @@ async function registerManifestLocally(prisma, { appId, gameName, zipBuffer, use
   if (steam?.shortDescription) description = steam.shortDescription;
 
   try {
-    const { storageType, s3Key } = await persistManifestZip(appIdStr, zipBuffer, s3Client);
+    const cleanedZipBuffer = await cleanManifestZip(zipBuffer);
+    const { storageType, s3Key } = await persistManifestZip(appIdStr, cleanedZipBuffer, s3Client);
     await prisma.manifest.upsert({
       where: { steamAppId: appIdStr },
       update: {
         name,
-        fileSize: BigInt(zipBuffer.length),
+        fileSize: BigInt(cleanedZipBuffer.length),
         storageType,
         ...(imageUrl ? { imageUrl } : {}),
         ...(description ? { description } : {}),
@@ -87,7 +89,7 @@ async function registerManifestLocally(prisma, { appId, gameName, zipBuffer, use
       create: {
         steamAppId: appIdStr,
         name,
-        fileSize: BigInt(zipBuffer.length),
+        fileSize: BigInt(cleanedZipBuffer.length),
         userId: ownerId,
         storageType,
         s3Key: s3Key || undefined,
