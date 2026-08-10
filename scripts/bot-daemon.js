@@ -493,16 +493,36 @@ function getSiteHostLabel() {
   }
 }
 
-/** Must sign in on the website (NextAuth) before using generation commands. */
+/** Must complete Discord verification before using generation commands. */
 function isWebLinked(user) {
-  return !!(user && user.webLoginAt);
+  return !!(user && user.discordVerifiedAt);
 }
 
 function accountNotLinkedReply(interaction) {
-  return interaction.reply({
-    content: `❌ **Account Not Linked**: Sign in with Discord at **${getGenAppUrl()}/** once before using generation commands.`,
-    flags: MessageFlags.Ephemeral,
+  const {
+    accountNotVerifiedReply,
+  } = require('./lib/gen-access-gate');
+  return accountNotVerifiedReply(interaction, getGenAppUrl());
+}
+
+async function assertGenCommandAccess(interaction, user) {
+  const { assertGenerationAccess } = require('./lib/gen-access-gate');
+  const verifyCfg = await getVerifyConfig();
+  const gate = await assertGenerationAccess(prisma, user, {
+    interaction,
+    verifiedRoleId: verifyCfg.verifiedRoleId,
   });
+  if (gate.ok) return null;
+  if (gate.code === 'BANNED') {
+    return interaction.reply({
+      content: '❌ **Account Banned**: Your account is permanently suspended from using OpenSteam services.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+  if (gate.code === 'ALT_NETWORK') {
+    return interaction.reply({ content: `❌ ${gate.message}`, flags: MessageFlags.Ephemeral });
+  }
+  return accountNotLinkedReply(interaction);
 }
 
 const VERIFY_DEFAULTS = {
@@ -3786,9 +3806,8 @@ async function startBot() {
         return accountNotLinkedReply(interaction);
       }
 
-      if (!isWebLinked(user)) {
-        return accountNotLinkedReply(interaction);
-      }
+      const requestGate = await assertGenCommandAccess(interaction, user);
+      if (requestGate) return requestGate;
 
       await interaction.deferReply();
 
@@ -4248,13 +4267,8 @@ async function startBot() {
         return accountNotLinkedReply(interaction);
       }
 
-      if (!isWebLinked(user)) {
-        return accountNotLinkedReply(interaction);
-      }
-
-      if (user.isBanned) {
-        return interaction.reply({ content: 'Your account is suspended from using OpenSteam services.', flags: MessageFlags.Ephemeral });
-      }
+      const dlcGate = await assertGenCommandAccess(interaction, user);
+      if (dlcGate) return dlcGate;
 
       await interaction.deferReply();
 
@@ -4327,13 +4341,8 @@ async function startBot() {
         return accountNotLinkedReply(interaction);
       }
 
-      if (!isWebLinked(user)) {
-        return accountNotLinkedReply(interaction);
-      }
-
-      if (user.isBanned) {
-        return interaction.reply({ content: '❌ **Account Banned**: Your account is permanently suspended from using OpenSteam services.', flags: MessageFlags.Ephemeral });
-      }
+      const genGate = await assertGenCommandAccess(interaction, user);
+      if (genGate) return genGate;
 
       await interaction.deferReply();
 
@@ -6201,16 +6210,8 @@ async function startBot() {
         return accountNotLinkedReply(interaction);
       }
 
-      if (!isWebLinked(user)) {
-        return accountNotLinkedReply(interaction);
-      }
-
-      if (user.isBanned) {
-        return interaction.reply({ 
-          content: '❌ **Account Banned**: Your account is permanently suspended from using OpenSteam services.', 
-          flags: MessageFlags.Ephemeral 
-        });
-      }
+      const onlineFixGate = await assertGenCommandAccess(interaction, user);
+      if (onlineFixGate) return onlineFixGate;
 
       await interaction.deferReply();
       

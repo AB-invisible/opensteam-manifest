@@ -77,6 +77,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: guildAccess.error, code: guildAccess.code }, { status: 403, headers })
     }
 
+    if (!user.discordVerifiedAt) {
+      return NextResponse.json(
+        {
+          error: 'Discord verification required before generating manifests.',
+          code: 'NOT_VERIFIED',
+        },
+        { status: 403, headers },
+      )
+    }
+
+    const sharedIp = (user.verifyIp || user.lastIp || '').trim()
+    if (sharedIp) {
+      const altOnNetwork = await prisma.user.findFirst({
+        where: {
+          id: { not: user.id },
+          discordVerifiedAt: { not: null },
+          OR: [{ verifyIp: sharedIp }, { lastIp: sharedIp }],
+        },
+        select: { username: true },
+      })
+      if (altOnNetwork) {
+        return NextResponse.json(
+          {
+            error: `Alt account blocked. Another verified account (${altOnNetwork.username}) already uses this network.`,
+            code: 'ALT_NETWORK',
+          },
+          { status: 403, headers },
+        )
+      }
+    }
+
     // ── Daily limit check ────────────────────────────────────────────────────
     const webQuota = await checkWebDailyQuota(user.id, user)
     const { todayCount, limit: dailyWebLimit } = webQuota
