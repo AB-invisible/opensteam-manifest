@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/app/lib/prisma';
-import fs from 'fs';
-import path from 'path';
-import { performHealthCheck } from '@/app/lib/platform-health';
+import { getCommunityBotIncidentStatus, performHealthCheck } from '@/app/lib/platform-health';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,17 +74,8 @@ export async function GET() {
     // 5 & 6. Firewall + Bot (DB-dependent, run after website check settles)
     (async () => {
       try {
-        const botEnabled = await prisma.systemConfig.findUnique({ where: { key: 'DISCORD_BOT_ENABLED' } });
         statuses.firewall = 'operational';
-        if (botEnabled?.value !== 'true') {
-          statuses.bot = 'degraded';
-        } else {
-          const logPath = path.join(process.cwd(), 'data/logs/bot.log');
-          if (fs.existsSync(logPath)) {
-            const diff = Date.now() - new Date(fs.statSync(logPath).mtime).getTime();
-            statuses.bot = diff < 4 * 60 * 60 * 1000 ? 'operational' : 'degraded';
-          }
-        }
+        statuses.bot = await getCommunityBotIncidentStatus();
       } catch {
         statuses.firewall = 'degraded';
         statuses.bot = 'major_outage';

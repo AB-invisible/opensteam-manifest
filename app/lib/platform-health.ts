@@ -1,7 +1,62 @@
 import { prisma } from './prisma'
 import fs from 'fs/promises'
+import fsSync from 'fs'
 import path from 'path'
 import { isPlaceholderManifestName } from './manifest-filename'
+
+export type CommunityBotRuntime = 'running' | 'stopped' | 'unknown'
+
+export function isCommunityBotEnabled(value: string | null | undefined): boolean {
+  return !value || value !== 'false'
+}
+
+/** Best-effort check that bot-daemon is alive (PID file or recent log activity). */
+export function checkCommunityBotRuntime(): CommunityBotRuntime {
+  const pidPaths = [
+    process.env.BOT_PID_FILE,
+    '/tmp/opensteam-bot.pid',
+    path.join(process.cwd(), 'data/bot.pid'),
+  ].filter((p): p is string => Boolean(p))
+
+  for (const pidPath of pidPaths) {
+    try {
+      if (!fsSync.existsSync(pidPath)) continue
+      const pid = parseInt(fsSync.readFileSync(pidPath, 'utf8').trim(), 10)
+      if (!pid) continue
+      process.kill(pid, 0)
+      return 'running'
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'code' in err && err.code === 'ESRCH') {
+        return 'stopped'
+      }
+    }
+  }
+
+  const logPath = path.join(process.cwd(), 'data/logs/bot.log')
+  try {
+    if (fsSync.existsSync(logPath)) {
+      const diff = Date.now() - fsSync.statSync(logPath).mtimeMs
+      return diff < 4 * 60 * 60 * 1000 ? 'running' : 'stopped'
+    }
+  } catch {
+    // ignore
+  }
+
+  return 'unknown'
+}
+
+export async function getCommunityBotIncidentStatus(): Promise<'operational' | 'degraded' | 'major_outage'> {
+  try {
+    const botEnabledCfg = await prisma.systemConfig.findUnique({ where: { key: 'DISCORD_BOT_ENABLED' } })
+    if (!isCommunityBotEnabled(botEnabledCfg?.value)) return 'degraded'
+
+    const runtime = checkCommunityBotRuntime()
+    if (runtime === 'stopped') return 'degraded'
+    return 'operational'
+  } catch {
+    return 'major_outage'
+  }
+}
 
 export type HealthCheckResult = {
   healthy: boolean
@@ -63,8 +118,17 @@ export async function performHealthCheck(): Promise<HealthCheckResult> {
   }
 
   const botEnabledCfg = await prisma.systemConfig.findUnique({ where: { key: 'DISCORD_BOT_ENABLED' } })
-  const botEnabled = !botEnabledCfg || botEnabledCfg.value !== 'false'
-  checks.communityBot = { ok: botEnabled, enabled: botEnabled }
+  const botEnabled = isCommunityBotEnabled(botEnabledCfg?.value)
+  const runtime = checkCommunityBotRuntime()
+  checks.communityBot = {
+    ok: botEnabled && runtime !== 'stopped',
+    enabled: botEnabled,
+    error: !botEnabled
+      ? 'Disabled in SystemConfig'
+      : runtime === 'stopped'
+        ? 'Bot process not running'
+        : undefined,
+  }
 
   const hostedInstances = await prisma.hostedBotInstance.findMany({
     select: { status: true, updatedAt: true },

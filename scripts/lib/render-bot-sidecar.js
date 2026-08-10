@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 
 let botProcess = null;
@@ -24,6 +25,13 @@ function startDiscordBotSidecar() {
         BOT_PID_FILE: process.env.BOT_PID_FILE || '/tmp/opensteam-bot.pid',
       },
     });
+
+    // Touch a log marker so status checks can detect recent bot activity on Render.
+    try {
+      const logDir = path.join(process.cwd(), 'data', 'logs');
+      fs.mkdirSync(logDir, { recursive: true });
+      fs.writeFileSync(path.join(logDir, 'bot.log'), `[RenderBot] sidecar started at ${new Date().toISOString()}\n`, { flag: 'a' });
+    } catch (_) {}
 
     botProcess.on('exit', (code, signal) => {
       botProcess = null;
