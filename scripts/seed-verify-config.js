@@ -17,6 +17,7 @@ async function main() {
     ['DISCORD_VERIFY_BANNER_URL', `${APP_URL.replace(/\/$/, '')}/opensteam.png`, false],
     ['DISCORD_UNVERIFIED_ROLE_ID', '1532919070473584840', false],
     ['DISCORD_VERIFIED_ROLE_ID', '1532912441954926603', false],
+    ['DISCORD_ALERTS_CHANNEL_ID', '1536150448942219345', false],
   ];
 
   for (const [key, value, isSecret] of pairs) {
