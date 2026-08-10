@@ -2657,7 +2657,7 @@ async function startBot() {
       GatewayIntentBits.GuildMembers,
       GatewayIntentBits.MessageContent,  // Required to read message.content (privileged intent)
     ],
-    partials: [Partials.Channel, Partials.Message, Partials.User]
+    partials: [Partials.Channel, Partials.Message, Partials.User, Partials.Attachment]
   });
 
   // Gateway/websocket resilience: without an 'error' listener, discord.js can
@@ -7675,6 +7675,7 @@ async function startBot() {
       const handledUpload = await handleManifestUploadChannelMessage(message, prisma, {
         botToken: activeBot.token,
         client,
+        s3Client: botS3Client,
       });
       if (handledUpload) return;
     } catch (uploadErr) {

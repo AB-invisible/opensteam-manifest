@@ -199,6 +199,9 @@ async function handleManifestUploadChannelMessage(message, prisma, opts = {}) {
   if (!isManifestUploadChannel(message, uploadChannelId)) return false;
 
   const fullMessage = await ensureMessageWithAttachments(message);
+  console.log(
+    `[ManifestUpload] Message from ${fullMessage.author?.tag || fullMessage.author?.id} in ${fullMessage.channelId}`,
+  );
   const botToken = opts.botToken || process.env.DISCORD_BOT_TOKEN || '';
 
   const uploadAccess = await canUploadManifests(fullMessage, prisma);
@@ -273,6 +276,7 @@ async function handleManifestUploadChannelMessage(message, prisma, opts = {}) {
         appId,
         gameName: `App ${appId}`,
         zipBuffer: buffer,
+        s3Client: opts.s3Client,
       });
 
       if (registerResult.ok) {
