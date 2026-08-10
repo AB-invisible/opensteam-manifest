@@ -126,6 +126,46 @@ function cleanOnlineFixName(fileName) {
     .trim();
 }
 
+/** User-facing game title from raw OnlineFix catalog labels. */
+function parseOnlineFixDisplayName(rawName, fileName) {
+  let source = String(rawName || '').trim();
+  if (!source && fileName) {
+    source = cleanOnlineFixName(fileName);
+  }
+  if (!source) return 'Unknown Game';
+
+  const onlineMarker = ' по сети';
+  const onlineIdx = source.toLowerCase().indexOf(onlineMarker);
+  if (onlineIdx > 0) {
+    return source.slice(0, onlineIdx).trim();
+  }
+
+  const dashIdx = source.indexOf(' - ');
+  if (dashIdx > 0 && /fix repair/i.test(source)) {
+    return source.slice(0, dashIdx).trim();
+  }
+
+  if (fileName) {
+    const fromFile = cleanOnlineFixName(fileName);
+    if (fromFile && !/fix repair/i.test(fromFile)) {
+      return fromFile;
+    }
+  }
+
+  for (const suffix of [' Fix Repair Steam Generic', ' Fix Repair Steam', ' Online Fix']) {
+    if (source.toLowerCase().endsWith(suffix.toLowerCase())) {
+      source = source.slice(0, -suffix.length).trim();
+    }
+  }
+
+  return source || String(rawName || '').trim() || 'Unknown Game';
+}
+
+function steamHeaderImageUrl(appId) {
+  if (!appId) return null;
+  return `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`;
+}
+
 function formatOnlineFixSize(bytes) {
   if (bytes == null || Number.isNaN(Number(bytes))) {
     return 'Unknown';
@@ -545,6 +585,8 @@ module.exports = {
   ensureOnlineFixCatalog,
   onlineFixGameFromS3Object,
   cleanOnlineFixName,
+  parseOnlineFixDisplayName,
+  steamHeaderImageUrl,
   encodeS3KeyForUrl,
   onlineFixKeyForFileName
 };

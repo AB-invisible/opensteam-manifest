@@ -56,12 +56,22 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    const { parseOnlineFixDisplayName } = require('@/scripts/lib/onlinefix-s3')
+    const enriched = games.map((game) => {
+      const title = parseOnlineFixDisplayName(game.name, game.fileName)
+      return {
+        ...game,
+        title,
+        displayName: title,
+      }
+    })
+
     return NextResponse.json(
       { 
         success: true,
-        count: games.length,
-        games,
-        fixes: games,
+        count: enriched.length,
+        games: enriched,
+        fixes: enriched,
       },
       { status: 200, headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) }
     )
