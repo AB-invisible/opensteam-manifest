@@ -28,9 +28,9 @@ export const metadata = {
     description: 'Join the community-driven Steam manifest database. Pro-grade generation with real-time API integration.',
   },
   icons: {
-    icon: '/opensteam.png',
-    shortcut: '/opensteam.png',
-    apple: '/opensteam.png',
+    icon: '/opensteam.png?v=20260810',
+    shortcut: '/opensteam.png?v=20260810',
+    apple: '/opensteam.png?v=20260810',
   },
 }
 

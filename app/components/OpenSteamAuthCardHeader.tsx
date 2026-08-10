@@ -19,7 +19,7 @@ export function OpenSteamAuthLogo({ size = 'lg' }: { size?: 'md' | 'lg' }) {
   const dim = size === 'lg' ? 'h-28 w-28' : 'h-16 w-16'
   return (
     <Image
-      src="/opensteam.png"
+      src="/opensteam.png?v=20260810"
       alt="OpenSteam"
       width={112}
       height={112}

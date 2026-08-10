@@ -14,7 +14,7 @@ export default function TOSPage() {
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push('/')}>
             <div className="hover:scale-110 transition-transform">
-              <img src="/favicon.ico" alt="OpenSteam" className="h-7 w-7" />
+              <img src="/opensteam.png?v=20260810" alt="OpenSteam" className="h-7 w-7" />
             </div>
             <span className="text-xl font-bold tracking-tight">OpenSteam <span className="text-indigo-400">TOS</span></span>
           </div>
@@ -211,7 +211,7 @@ export default function TOSPage() {
               <a href="https://discord.gg/4RdMhcYws" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-indigo-400 transition-colors text-sm font-medium">Join Discord</a>
             </div>
             <div className="flex items-center space-x-2 text-white/40 text-sm font-medium">
-              <img src="/favicon.ico" alt="OpenSteam" className="w-5 h-5 opacity-40 grayscale" />
+              <img src="/opensteam.png?v=20260810" alt="OpenSteam" className="w-5 h-5 opacity-40 grayscale" />
               <span>© 2026 OpenSteam Platform. All Rights Reserved.</span>
             </div>
           </div>

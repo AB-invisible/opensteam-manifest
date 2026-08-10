@@ -170,7 +170,7 @@ export default function PricingPage() {
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push('/')}>
             <div className="hover:scale-110 transition-transform">
-              <img src="/favicon.ico" alt="OpenSteam" className="h-7 w-7" />
+              <img src="/opensteam.png?v=20260810" alt="OpenSteam" className="h-7 w-7" />
             </div>
             <span className="text-xl font-bold text-white hidden sm:block">OpenSteam</span>
           </div>
@@ -535,7 +535,7 @@ export default function PricingPage() {
           </div>
           <div className="flex flex-col items-center justify-center space-y-2">
             <div className="flex items-center space-x-2 text-white/40 text-sm font-medium">
-              <img src="/favicon.ico" alt="OpenSteam" className="w-5 h-5 opacity-40 grayscale" />
+              <img src="/opensteam.png?v=20260810" alt="OpenSteam" className="w-5 h-5 opacity-40 grayscale" />
               <span>© 2026 OpenSteam Platform. Powered by OpenSteam | Manifests</span>
             </div>
             <p className="text-[10px] text-white/20 uppercase tracking-[0.2em]">Secure • Scalable • Developer-First</p>

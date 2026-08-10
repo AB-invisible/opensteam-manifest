@@ -46,7 +46,7 @@ export default function CreditsPage() {
       <nav className="sticky top-0 z-50 glass border-b-white/5 border-t-0 border-x-0 rounded-none w-full">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push('/')}>
-            <img src="/favicon.ico" alt="OpenSteam" className="h-7 w-7" />
+            <img src="/opensteam.png?v=20260810" alt="OpenSteam" className="h-7 w-7" />
             <span className="text-xl font-bold tracking-tight">
               OpenSteam <span className="text-indigo-400">Credits</span>
             </span>

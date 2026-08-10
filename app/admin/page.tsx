@@ -1470,7 +1470,7 @@ export default function AdminDashboard() {
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push('/')}>
             <div className="hover:scale-110 transition-transform">
-              <img src="/opensteam.png" alt="OpenSteam" className="h-8 w-8 rounded-full object-contain ring-1 ring-cyan-400/30" />
+              <img src="/opensteam.png?v=20260810" alt="OpenSteam" className="h-8 w-8 rounded-full object-contain ring-1 ring-cyan-400/30" />
             </div>
             <span className="text-xl font-bold text-white hidden sm:block">OpenSteam</span>
           </div>
@@ -1607,7 +1607,7 @@ export default function AdminDashboard() {
                   onClick={() => setActiveTab('requests')}
                   className={`px-4 py-2 rounded-xl transition-all flex items-center space-x-2 ${activeTab === 'requests' ? 'bg-indigo-500 text-white' : 'hover:bg-white/10 text-muted-foreground hover:text-white'}`}
                 >
-                  <img src="/favicon.ico" alt="" className="h-4 w-4 grayscale brightness-200" />
+                  <img src="/opensteam.png?v=20260810" alt="" className="h-4 w-4 grayscale brightness-200" />
                   <span>Game Requests</span>
                   {requests.filter(r => r.status === 'PENDING').length > 0 && (
                     <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white ml-2">

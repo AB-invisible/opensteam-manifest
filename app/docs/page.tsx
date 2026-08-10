@@ -48,7 +48,7 @@ export default function DocsPage() {
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push('/')}>
             <div className="hover:scale-110 transition-transform duration-300">
-              <img src="/favicon.ico" alt="OpenSteam" className="h-8 w-8" />
+              <img src="/opensteam.png?v=20260810" alt="OpenSteam" className="h-8 w-8" />
             </div>
             <span className="text-xl font-bold tracking-tight">OpenSteam <span className="text-indigo-400">Developer</span></span>
           </div>
@@ -722,7 +722,7 @@ export default function DocsPage() {
                 className="w-full sm:w-auto inline-flex items-center justify-center space-x-3 px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-[1.5rem] font-black transition-all duration-300 hover:scale-105 active:scale-95 shadow-xl shadow-indigo-600/20"
               >
                 <div className="p-1 bg-white/20 rounded-md">
-                   <img src="/favicon.ico" alt="" className="h-4 w-4" />
+                   <img src="/opensteam.png?v=20260810" alt="" className="h-4 w-4" />
                 </div>
                 <span>Developer Discord</span>
               </a>
@@ -747,7 +747,7 @@ export default function DocsPage() {
           </div>
           <div className="text-center space-y-2 relative z-10">
             <div className="flex justify-center items-center space-x-2 opacity-50 mb-4">
-              <img src="/favicon.ico" alt="" className="h-6 w-6 filter grayscale" />
+              <img src="/opensteam.png?v=20260810" alt="" className="h-6 w-6 filter grayscale" />
             </div>
             <p className="text-muted-foreground text-xs">&copy; {new Date().getFullYear()} OpenSteam API Platform. Not affiliated with Valve Corp.</p>
             <p className="text-[#3b82f6]/40 text-[10px] uppercase tracking-widest font-black pt-2">Automated Digital Delivery Systems</p>

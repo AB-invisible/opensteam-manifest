@@ -156,7 +156,7 @@ export default function DonatePage() {
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => router.push('/')}>
             <div className="p-1.5 bg-indigo-500/10 rounded-xl border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-all">
-              <img src="/favicon.ico" alt="" className="h-6 w-6 group-hover:scale-110 transition-transform" />
+              <img src="/opensteam.png?v=20260810" alt="" className="h-6 w-6 group-hover:scale-110 transition-transform" />
             </div>
             <span className="text-xl font-black uppercase tracking-tighter">OpenSteam <span className="text-indigo-500">Donations</span></span>
           </div>
