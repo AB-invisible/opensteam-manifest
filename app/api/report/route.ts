@@ -35,14 +35,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: ownership.status })
     }
 
+    const normalizedSessionId = ownership.sessionId
+
     await prisma.appSession.upsert({
-      where: { id: sessionId },
+      where: { id: normalizedSessionId },
       update: {
         lastSeen: new Date(),
         appVersion: appVersion || 'unknown',
       },
       create: {
-        id: sessionId,
+        id: normalizedSessionId,
         apiKeyId: auth.apiKeyId,
         userId: auth.user.id,
         appVersion: appVersion || 'unknown',
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
     if (event && event.type) {
       await prisma.appEvent.create({
         data: {
-          sessionId,
+          sessionId: normalizedSessionId,
           type: event.type,
           appId: event.appId ? String(event.appId) : null,
           gameName: event.gameName || null,

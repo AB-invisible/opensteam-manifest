@@ -38,4 +38,19 @@ describe('assertAppSessionOwnership', () => {
     const result = await assertAppSessionOwnership('not-a-uuid', 'key-a')
     expect(result).toEqual({ ok: false, status: 400 })
   })
+
+  it('accepts compact desktop session ids', async () => {
+    findUniqueMock.mockResolvedValue(null)
+    vi.doMock('@/app/lib/prisma', () => ({
+      prisma: { appSession: { findUnique: findUniqueMock } },
+    }))
+
+    const { assertAppSessionOwnership, normalizeAppSessionId } = await import('@/app/lib/app-session')
+    const compact = '0123456789abcdef0123456789abcdef'
+    const result = await assertAppSessionOwnership(compact, 'key-a')
+    expect(result).toEqual({
+      ok: true,
+      sessionId: normalizeAppSessionId(compact),
+    })
+  })
 })

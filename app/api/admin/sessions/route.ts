@@ -58,7 +58,8 @@ export async function GET(request: NextRequest) {
       where.OR = [
         { user: { username: { contains: query, mode: 'insensitive' } } },
         { user: { discordId: { contains: query, mode: 'insensitive' } } },
-        { id: { contains: query, mode: 'insensitive' } }
+        { id: { contains: query, mode: 'insensitive' } },
+        { apiKey: { machineId: { contains: query, mode: 'insensitive' } } },
       ]
     }
 
@@ -90,6 +91,7 @@ export async function GET(request: NextRequest) {
 
       return {
         sessionId: s.id,
+        machineId: s.apiKey.machineId,
         apiKey: s.apiKey.key,
         appVersion: s.appVersion,
         online: s.lastSeen >= tenMinutesAgo,
