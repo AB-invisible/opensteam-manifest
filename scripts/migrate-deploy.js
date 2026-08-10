@@ -86,6 +86,10 @@ const MIGRATION_CHECKS = [
     name: '20260726200000_discord_leave_suspension',
     check: (prisma) => columnExists(prisma, 'users', 'discordMemberStatus'),
   },
+  {
+    name: '20260810120000_device_pairing',
+    check: (prisma) => tableExists(prisma, 'device_pairings'),
+  },
 ];
 
 function runPrisma(args) {
