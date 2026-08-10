@@ -1160,6 +1160,9 @@ model OnlineFixGame {
   fileName    String
   fileUrl     String
   fileSize    String?
+  imageUrl    String?
+  sourceUrl   String?
+  steamAppId  Int?
   lastUpdated DateTime?
   indexedAt   DateTime  @default(now())
   searches    Int       @default(0)

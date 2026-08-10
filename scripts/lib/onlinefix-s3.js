@@ -126,39 +126,49 @@ function cleanOnlineFixName(fileName) {
     .trim();
 }
 
-/** User-facing game title from raw OnlineFix catalog labels. */
-function parseOnlineFixDisplayName(rawName, fileName) {
-  let source = String(rawName || '').trim();
-  if (!source && fileName) {
-    source = cleanOnlineFixName(fileName);
-  }
-  if (!source) return 'Unknown Game';
+/** User-facing English game title from raw OnlineFix catalog labels. */
+function stripOnlineFixLabel(source) {
+  let text = String(source || '').trim();
+  if (!text) return '';
 
-  const onlineMarker = ' по сети';
-  const onlineIdx = source.toLowerCase().indexOf(onlineMarker);
-  if (onlineIdx > 0) {
-    return source.slice(0, onlineIdx).trim();
-  }
-
-  const dashIdx = source.indexOf(' - ');
-  if (dashIdx > 0 && /fix repair/i.test(source)) {
-    return source.slice(0, dashIdx).trim();
-  }
-
-  if (fileName) {
-    const fromFile = cleanOnlineFixName(fileName);
-    if (fromFile && !/fix repair/i.test(fromFile)) {
-      return fromFile;
+  const lower = text.toLowerCase();
+  const onlineMarkers = [' по сет', ' online'];
+  for (const marker of onlineMarkers) {
+    const idx = lower.indexOf(marker);
+    if (idx > 0) {
+      text = text.slice(0, idx).trim();
+      break;
     }
+  }
+
+  const dashIdx = text.indexOf(' - ');
+  if (dashIdx > 0 && /fix repair/i.test(text)) {
+    text = text.slice(0, dashIdx).trim();
   }
 
   for (const suffix of [' Fix Repair Steam Generic', ' Fix Repair Steam', ' Online Fix']) {
-    if (source.toLowerCase().endsWith(suffix.toLowerCase())) {
-      source = source.slice(0, -suffix.length).trim();
+    if (text.toLowerCase().endsWith(suffix.toLowerCase())) {
+      text = text.slice(0, -suffix.length).trim();
     }
   }
 
-  return source || String(rawName || '').trim() || 'Unknown Game';
+  return text;
+}
+
+function parseOnlineFixDisplayName(rawName, fileName) {
+  if (fileName) {
+    let base = safeDecodeURIComponent(fileNameFromS3Key(fileName)).replace(/\.(rar|zip)$/i, '');
+    const fixIdx = base.toLowerCase().indexOf('_fix_repair');
+    if (fixIdx > 0) base = base.slice(0, fixIdx);
+    base = base.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+    const fromFile = stripOnlineFixLabel(base);
+    if (fromFile) return fromFile;
+  }
+
+  const fromRaw = stripOnlineFixLabel(rawName);
+  if (fromRaw) return fromRaw;
+
+  return String(rawName || '').trim() || 'Unknown Game';
 }
 
 function steamHeaderImageUrl(appId) {
@@ -407,17 +417,18 @@ async function scrapePeronDepotGames() {
     const textEnd = line.indexOf('<', textStart);
     if (textStart === 0 || textEnd === -1) continue;
 
-    const archiveName = line.substring(textStart, textEnd).trim();
-    if (!archiveName || archiveName.includes('..') || archiveName.includes('docker') || archiveName.includes('nginx')) continue;
+    const archiveName = safeDecodeURIComponent(href.split('/').filter(Boolean).pop() || '').trim();
+    if (!archiveName || archiveName.includes('..')) continue;
     if (!archiveName.endsWith('.rar') && !archiveName.endsWith('.zip')) continue;
 
-    const cleanName = archiveName.replace(/\.(rar|zip)$/i, '').replace(/_/g, ' ').trim();
+    const linkText = line.substring(textStart, textEnd).trim();
     const sizeMatch = line.substring(textEnd).match(/(\d+(?:\.\d+)?)\s*(KB|MB|GB|TB|K|M|G|T)/i);
+    const cleanName = parseOnlineFixDisplayName(linkText, archiveName);
 
     scrapedGames.push({
       name: cleanName,
       fileName: archiveName,
-      fileUrl: `https://api.perondepot.xyz/${href}`,
+      fileUrl: `https://api.perondepot.xyz/${href.replace(/^\.\//, '')}`,
       fileSize: sizeMatch ? sizeMatch[0] : 'Unknown',
     });
   }
@@ -467,12 +478,8 @@ async function syncOnlineFixIndexFromPeronDepot({ prismaClient } = {}) {
 
 let catalogEnsurePromise = null;
 
-async function ensureOnlineFixCatalog({ prismaClient } = {}) {
+async function refreshOnlineFixCatalog({ prismaClient, force = false } = {}) {
   const db = prismaClient || getPrismaClient();
-  const existingCount = await db.onlineFixGame.count();
-  if (existingCount > 0) {
-    return { source: 'db', count: existingCount };
-  }
 
   if (catalogEnsurePromise) {
     await catalogEnsurePromise.catch(() => {});
@@ -481,21 +488,48 @@ async function ensureOnlineFixCatalog({ prismaClient } = {}) {
 
   catalogEnsurePromise = (async () => {
     try {
-      const s3Result = await syncOnlineFixIndexFromS3({ prismaClient: db });
-      const afterS3 = await db.onlineFixGame.count();
-      if (afterS3 > 0) {
-        return { source: 's3', count: afterS3, ...s3Result };
+      let count = await db.onlineFixGame.count();
+      if (count === 0) {
+        await syncOnlineFixIndexFromS3({ prismaClient: db }).catch(() => {});
+        count = await db.onlineFixGame.count();
+      }
+      if (count === 0) {
+        await syncOnlineFixIndexFromPeronDepot({ prismaClient: db }).catch(() => {});
+        count = await db.onlineFixGame.count();
       }
 
-      const depotResult = await syncOnlineFixIndexFromPeronDepot({ prismaClient: db });
-      const afterDepot = await db.onlineFixGame.count();
-      return { source: 'perondepot', count: afterDepot, ...depotResult };
+      await syncOnlineFixIndexFromPeronDepot({ prismaClient: db }).catch((err) => {
+        console.warn('[OnlineFix] PeronDepot sync failed:', err?.message || err);
+      });
+
+      const {
+        shouldRefreshOfficialSite,
+        syncOnlineFixIndexFromOfficialSite,
+        normalizeOnlineFixCatalogNames,
+        resolveSteamImagesForCatalog,
+      } = require('./onlinefix-site');
+
+      if (force || shouldRefreshOfficialSite()) {
+        await syncOnlineFixIndexFromOfficialSite({ prismaClient: db }).catch((err) => {
+          console.warn('[OnlineFix] Official site sync failed:', err?.message || err);
+        });
+      }
+
+      await normalizeOnlineFixCatalogNames({ prismaClient: db }).catch(() => {});
+      await resolveSteamImagesForCatalog({ prismaClient: db }).catch(() => {});
+
+      count = await db.onlineFixGame.count();
+      return { source: 'refresh', count };
     } finally {
       catalogEnsurePromise = null;
     }
   })();
 
   return catalogEnsurePromise;
+}
+
+async function ensureOnlineFixCatalog(options = {}) {
+  return refreshOnlineFixCatalog(options);
 }
 
 /**
@@ -583,6 +617,7 @@ module.exports = {
   syncOnlineFixIndexFromS3,
   syncOnlineFixIndexFromPeronDepot,
   ensureOnlineFixCatalog,
+  refreshOnlineFixCatalog,
   onlineFixGameFromS3Object,
   cleanOnlineFixName,
   parseOnlineFixDisplayName,

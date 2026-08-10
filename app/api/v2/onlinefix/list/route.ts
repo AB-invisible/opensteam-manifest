@@ -23,11 +23,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    let games = await prisma.onlineFixGame.findMany({
+    const { refreshOnlineFixCatalog, parseOnlineFixDisplayName, steamHeaderImageUrl } =
+      require('@/scripts/lib/onlinefix-s3')
+
+    void refreshOnlineFixCatalog({ prismaClient: prisma }).catch((err) => {
+      console.warn('[API OnlineFix List] Background catalog refresh failed:', err?.message || err)
+    })
+
+    const games = await prisma.onlineFixGame.findMany({
       select: {
         name: true,
         fileName: true,
         fileSize: true,
+        imageUrl: true,
+        sourceUrl: true,
+        steamAppId: true,
         searches: true,
         lastUpdated: true,
       },
@@ -36,33 +46,17 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    if (games.length === 0) {
-      const { ensureOnlineFixCatalog } = require('@/scripts/lib/onlinefix-s3')
-      await ensureOnlineFixCatalog({ prismaClient: prisma }).catch((err) => {
-        console.warn('[API OnlineFix List] Catalog bootstrap failed:', err?.message || err)
-      })
-
-      games = await prisma.onlineFixGame.findMany({
-        select: {
-          name: true,
-          fileName: true,
-          fileSize: true,
-          searches: true,
-          lastUpdated: true,
-        },
-        orderBy: {
-          name: 'asc'
-        }
-      })
-    }
-
-    const { parseOnlineFixDisplayName } = require('@/scripts/lib/onlinefix-s3')
     const enriched = games.map((game) => {
       const title = parseOnlineFixDisplayName(game.name, game.fileName)
+      const imageUrl =
+        game.imageUrl ||
+        (game.steamAppId ? steamHeaderImageUrl(game.steamAppId) : null)
+
       return {
         ...game,
         title,
         displayName: title,
+        imageUrl,
       }
     })
 
