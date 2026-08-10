@@ -15,14 +15,15 @@ export function OpenSteamAuthBanner() {
   )
 }
 
-export function OpenSteamAuthLogo() {
+export function OpenSteamAuthLogo({ size = 'lg' }: { size?: 'md' | 'lg' }) {
+  const dim = size === 'lg' ? 'h-28 w-28' : 'h-16 w-16'
   return (
     <Image
       src="/opensteam.png"
       alt="OpenSteam"
-      width={64}
-      height={64}
-      className="mx-auto h-16 w-16 rounded-2xl object-cover border border-white/10 shadow-lg shadow-indigo-500/20"
+      width={112}
+      height={112}
+      className={`mx-auto ${dim} rounded-full object-contain shadow-lg shadow-cyan-500/20 ring-1 ring-cyan-400/30`}
       priority
     />
   )
