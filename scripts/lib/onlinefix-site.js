@@ -11,8 +11,18 @@ const OFFICIAL_MAX_PAGES = 70;
 
 let lastOfficialSyncAt = 0;
 
+function decodeHtmlEntities(text) {
+  return String(text || '')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>');
+}
+
 function normalizeOnlineFixKey(value) {
-  return String(value || '')
+  return decodeHtmlEntities(value)
     .toLowerCase()
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -29,6 +39,10 @@ async function fetchOfficialHtml(url) {
       Accept: 'text/html,application/xhtml+xml',
     },
   });
+  if (res.status === 429) {
+    await new Promise((r) => setTimeout(r, 3000));
+    throw new Error(`online-fix.me rate limited (HTTP 429) for ${url}`);
+  }
   if (res.status < 200 || res.status >= 400) {
     throw new Error(`online-fix.me returned HTTP ${res.status} for ${url}`);
   }
@@ -45,9 +59,11 @@ function parseOfficialArticles(html) {
       block.match(/data-src="(https:\/\/online-fix\.me\/uploads\/[^"]+)"/i)?.[1] ||
       block.match(/src="(https:\/\/online-fix\.me\/uploads\/[^"]+)"/i)?.[1];
     const rawTitle =
-      block.match(/<h2[^>]*>\s*<a[^>]*>([^<]+)/i)?.[1]?.replace(/\s+/g, ' ').trim() ||
-      block.match(/<img[^>]+alt="([^"]+)"/i)?.[1]?.replace(/\s+/g, ' ').trim() ||
-      '';
+      decodeHtmlEntities(
+        block.match(/<h2[^>]*>\s*<a[^>]*>([^<]+)/i)?.[1]?.replace(/\s+/g, ' ').trim() ||
+          block.match(/<img[^>]+alt="([^"]+)"/i)?.[1]?.replace(/\s+/g, ' ').trim() ||
+          ''
+      );
 
     if (!pageUrl || !rawTitle) continue;
 
@@ -86,6 +102,9 @@ async function scrapeOfficialSiteCatalog({ maxPages = OFFICIAL_MAX_PAGES } = {})
         if (!byKey.has(game.key)) {
           byKey.set(game.key, game);
         }
+      }
+      if (url.includes('/games/page/')) {
+        await new Promise((r) => setTimeout(r, 350));
       }
     } catch (err) {
       if (url.includes('/games/page/')) break;
@@ -155,6 +174,55 @@ async function normalizeOnlineFixCatalogNames({ prismaClient } = {}) {
 
 const steamImageCache = new Map();
 
+function buildSteamSearchQueries(title, fileName) {
+  const queries = [];
+  const push = (value) => {
+    const v = String(value || '').replace(/\s+/g, ' ').trim();
+    if (v.length >= 3 && !queries.includes(v)) queries.push(v);
+  };
+
+  push(title);
+  push(title.replace(/[!'™]/g, ''));
+  push(title.replace(/&/g, 'and'));
+  push(title.replace(/[^a-zA-Z0-9\s+]/g, ' '));
+
+  if (fileName) {
+    const base = fileName.replace(/\.(rar|zip)$/i, '').split('_Fix_Repair')[0];
+    const acronym = base.includes(' - ') ? base.split(' - ').pop() : '';
+    if (acronym && /^[A-Za-z0-9+]+$/.test(acronym) && acronym.length >= 4) {
+      push(acronym.replace(/_/g, ' '));
+    }
+  }
+
+  const words = title.split(/\s+/).filter(Boolean);
+  if (words.length > 4) push(words.slice(0, 4).join(' '));
+  if (words.length > 2) push(words.slice(0, 2).join(' '));
+
+  return queries;
+}
+
+async function findSteamAppId(title, fileName) {
+  if (steamImageCache.has(title)) {
+    return steamImageCache.get(title);
+  }
+
+  const targetKey = normalizeOnlineFixKey(title);
+  for (const query of buildSteamSearchQueries(title, fileName)) {
+    const hits = await searchSteamStoreByName(query);
+    const hit =
+      hits.find((h) => normalizeOnlineFixKey(h.name) === targetKey) ||
+      hits.find((h) => h.name?.toLowerCase().includes(query.toLowerCase().slice(0, 8))) ||
+      hits[0];
+    if (hit?.appid) {
+      steamImageCache.set(title, hit.appid);
+      return hit.appid;
+    }
+  }
+
+  steamImageCache.set(title, null);
+  return null;
+}
+
 async function resolveSteamImagesForCatalog({ prismaClient, limit = 120 } = {}) {
   const db = prismaClient;
   if (!db) return { updated: 0 };
@@ -174,17 +242,7 @@ async function resolveSteamImagesForCatalog({ prismaClient, limit = 120 } = {}) 
 
     let appId = row.steamAppId;
     if (!appId) {
-      if (steamImageCache.has(title)) {
-        appId = steamImageCache.get(title);
-      } else {
-        const hits = await searchSteamStoreByName(title);
-        const hit =
-          hits.find((h) => normalizeOnlineFixKey(h.name) === normalizeOnlineFixKey(title)) ||
-          hits.find((h) => h.name?.toLowerCase().includes(title.toLowerCase())) ||
-          hits[0];
-        appId = hit?.appid || null;
-        steamImageCache.set(title, appId);
-      }
+      appId = await findSteamAppId(title, row.fileName);
     }
 
     if (!appId) continue;
@@ -208,6 +266,7 @@ function shouldRefreshOfficialSite() {
 
 module.exports = {
   OFFICIAL_SITE,
+  decodeHtmlEntities,
   normalizeOnlineFixKey,
   scrapeOfficialSiteCatalog,
   syncOnlineFixIndexFromOfficialSite,
