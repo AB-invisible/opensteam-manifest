@@ -501,8 +501,8 @@ function accountNotLinkedReply(interaction) {
 }
 
 const VERIFY_DEFAULTS = {
-  UNVERIFIED_ROLE_ID: '1505832860035059742',
-  VERIFIED_ROLE_ID: '1473719437692637288',
+  UNVERIFIED_ROLE_ID: '1532919070473584840',
+  VERIFIED_ROLE_ID: '1532912441954926603',
   VERIFY_CHANNEL_ID: '1532910591264423988',
   VERIFY_BANNER_URL: 'https://manifest-web-ylio.onrender.com/opensteam.png',
 };
@@ -3685,7 +3685,8 @@ async function startBot() {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         try {
           const targetRoleId = '1493956344925917184';
-          const assignRoleId = '1473719437692637288';
+          const verifyCfg = await getVerifyConfig();
+          const assignRoleId = verifyCfg.verifiedRoleId;
 
           // Fetch all guild members
           const members = await interaction.guild.members.fetch();
@@ -3727,7 +3728,7 @@ async function startBot() {
             return interaction.editReply(`ℹ️ **Merge Check Complete**\nNo eligible bots found who require merging.\n\n${statsText}`);
           }
 
-          await interaction.editReply(`🔄 Found **${eligibleTargets.length}** eligible bots. Assigning role <@&1473719437692637288>...\n\n${statsText}`);
+          await interaction.editReply(`🔄 Found **${eligibleTargets.length}** eligible bots. Assigning role <@&${assignRoleId}>...\n\n${statsText}`);
 
           let success = 0;
           let failed = 0;

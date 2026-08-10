@@ -8,13 +8,15 @@ const APP_URL =
   'https://manifest-web-ylio.onrender.com';
 
 async function main() {
-  const prisma = new PrismaClient();
+  const dbUrl = (process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || '').trim();
+  if (!dbUrl) throw new Error('NEON_DATABASE_URL or DATABASE_URL is required');
+  const prisma = new PrismaClient({ datasources: { db: { url: dbUrl } } });
   const pairs = [
     ['DISCORD_VERIFY_ENABLED', 'true', false],
     ['DISCORD_VERIFY_CHANNEL_ID', VERIFY_CHANNEL_ID, false],
     ['DISCORD_VERIFY_BANNER_URL', `${APP_URL.replace(/\/$/, '')}/opensteam.png`, false],
-    ['DISCORD_UNVERIFIED_ROLE_ID', '1505832860035059742', false],
-    ['DISCORD_VERIFIED_ROLE_ID', '1473719437692637288', false],
+    ['DISCORD_UNVERIFIED_ROLE_ID', '1532919070473584840', false],
+    ['DISCORD_VERIFIED_ROLE_ID', '1532912441954926603', false],
   ];
 
   for (const [key, value, isSecret] of pairs) {

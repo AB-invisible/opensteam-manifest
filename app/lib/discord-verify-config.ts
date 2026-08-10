@@ -3,8 +3,8 @@ import { resolvePublicAppUrl } from '@/app/lib/public-app-url'
 import { prisma } from '@/app/lib/prisma'
 
 export const VERIFY_DEFAULTS = {
-  UNVERIFIED_ROLE_ID: '1505832860035059742',
-  VERIFIED_ROLE_ID: '1473719437692637288',
+  UNVERIFIED_ROLE_ID: '1532919070473584840',
+  VERIFIED_ROLE_ID: '1532912441954926603',
   VERIFY_CHANNEL_ID: '1532910591264423988',
   VERIFY_BANNER_URL: `${resolvePublicAppUrl()}/opensteam.png`,
 } as const
