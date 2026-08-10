@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, NextFetchEvent } from 'next/server'
-import { isMalicious, isScraperUserAgent } from './app/lib/security-patterns'
+import { isMalicious } from './app/lib/security-patterns'
 import { resolveAccessControlAllowOrigin } from './app/lib/cors-origin'
 import { pingHeartbeat } from './app/lib/heartbeat'
 import { logToBetterStack } from './app/lib/otel-edge'
@@ -8,7 +8,6 @@ import { getClientIp, getSecurityContextFromRequest, securityContextToLogPayload
 import { shouldBypassVpnForApiKeyRequest } from './app/lib/api-key-edge'
 import { verifyAdminApiKeyFromRequest, verifyUptimeMonitorFromRequest } from './app/lib/admin-api-key'
 import { internalServiceAuthHeaders } from './app/lib/internal-service-headers'
-import { isBotApiRoute } from './app/lib/api-key-middleware'
 import { isLocalOpenSteamHost, isLocalhostHost, isTunnelHost } from './app/lib/app-hosts'
 
 function applyApiCors(response: NextResponse, request: NextRequest, includeMaxAge: boolean) {
@@ -90,59 +89,6 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
       }),
       { status: 403, headers: { 'Content-Type': 'application/json' } }
     )
-  }
-
-  // 1.5 Scraper Check
-  const hasValidApiKey = shouldBypassVpnForApiKeyRequest(request)
-  const isApiRouteForBots = isBotApiRoute(request.nextUrl.pathname)
-  const isExemptFromScraperCheck = isAdmin || hasValidApiKey || verifyUptimeMonitorFromRequest(request) || isApiRouteForBots
-  
-  if (!isExemptFromScraperCheck) {
-    const userAgent = request.headers.get('user-agent') || 'unknown'
-    const scraperMatch = isScraperUserAgent(userAgent)
-    
-    if (scraperMatch) {
-      const uaLower = userAgent.toLowerCase()
-      const isAllowedBot = 
-        uaLower.includes('telegrambot') ||
-        uaLower.includes('twitterbot') ||
-        uaLower.includes('facebookexternalhit') ||
-        uaLower.includes('linkedinbot') ||
-        uaLower.includes('discordbot') ||
-        uaLower.includes('slackbot') ||
-        uaLower.includes('whatsapp') ||
-        uaLower.includes('google') ||
-        uaLower.includes('bingbot') ||
-        uaLower.includes('yandex') ||
-        uaLower.includes('applebot')
-
-      if (!isAllowedBot) {
-        event.waitUntil(
-          fetch(`${request.nextUrl.origin}/api/internal/security-log`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...internalServiceAuthHeaders(),
-            },
-            body: JSON.stringify({
-              ...securityContextToLogPayload(getSecurityContextFromRequest(request, { path: url })),
-              path: url,
-              userAgent,
-              reason: 'Scraper Detected',
-              details: `Middleware intercepted scraper: ${scraperMatch}`
-            })
-          }).catch(() => {})
-        )
-
-        return new NextResponse(
-          JSON.stringify({
-            error: 'Forbidden: Automated scraping tools are not permitted without an API key.',
-            code: 'SEC_SCRAPER_DETECTED',
-          }),
-          { status: 403, headers: { 'Content-Type': 'application/json' } }
-        )
-      }
-    }
   }
 
   // NextAuth error/sign-in API pages → branded UI (preserve query params).

@@ -73,6 +73,9 @@ const COLORS = {
  * Fails silently to prevent blocking main execution.
  */
 export async function sendWebhook(event: WebhookEvent, data: any) {
+  // Disabled: scraper/abuse alerts were noisy (e.g. Render health checks) and are not wanted in reports.
+  if (event === 'ABUSE_ALERT') return
+
   const systemUrl = process.env.DISCORD_WEBHOOK_URL
   const gameUrl = process.env.DISCORD_GAME_WEBHOOK_URL
 
@@ -123,7 +126,7 @@ export async function sendWebhook(event: WebhookEvent, data: any) {
   }
 
   // Integration: Also send to the high-priority Discord Bot Alert channel
-  const monitoredEvents: WebhookEvent[] = ['KEY_DISABLED', 'ABUSE_ALERT', 'CRITICAL_ERROR', 'IP_BANNED', 'GAME_GENERATED', 'NSFW_GENERATED']
+  const monitoredEvents: WebhookEvent[] = ['KEY_DISABLED', 'CRITICAL_ERROR', 'IP_BANNED', 'GAME_GENERATED', 'NSFW_GENERATED']
   if (monitoredEvents.includes(event)) {
     const { sendBotAlert } = await import('./bot-admin');
     await sendBotAlert(

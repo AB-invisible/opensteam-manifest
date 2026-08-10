@@ -2630,7 +2630,6 @@ async function startBot() {
       GatewayIntentBits.DirectMessages,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.GuildMembers,
-      GatewayIntentBits.GuildVoiceStates,  // Required for voice channel join/leave and TTS speaking
       GatewayIntentBits.MessageContent,  // Required to read message.content (privileged intent)
     ],
     partials: [Partials.Channel, Partials.Message, Partials.User]
@@ -7643,16 +7642,6 @@ async function startBot() {
   // Dedup guard: prevents double-replies if two bot instances briefly overlap
   const recentlyHandledMessages = new Set();
 
-  // Auto-disconnect from Voice Channel when all human users leave
-  client.on('voiceStateUpdate', (oldState, newState) => {
-    try {
-      const { handleVoiceStateUpdate } = require('./lib/discord-voice');
-      handleVoiceStateUpdate(oldState, newState);
-    } catch (e) {
-      console.error('[VoiceStateUpdate] Error:', e?.message || e);
-    }
-  });
-
   client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
     if (recentlyHandledMessages.has(message.id)) return;
@@ -7668,15 +7657,6 @@ async function startBot() {
       if (handledUpload) return;
     } catch (uploadErr) {
       console.error('[ManifestUpload] Handler error:', uploadErr?.message || uploadErr);
-    }
-
-    // Discord Voice Channel Casual Chit-Chat handler
-    try {
-      const { handleVoiceChannelTextMessage } = require('./lib/discord-voice');
-      const handledVoice = await handleVoiceChannelTextMessage(message, client);
-      if (handledVoice) return;
-    } catch (vErr) {
-      console.error('[VoiceChat] Handler error:', vErr?.message || vErr);
     }
 
     // AI Knowledge Base Chat & Staff Ticket Learning handler
