@@ -2,6 +2,9 @@
  * Shared gates for Discord generation commands (/gen, /dlcgen, /request, /onlinefix).
  * Requires Discord verification — website login alone is not enough.
  */
+const {
+  findVerifiedAltForGeneration,
+} = require('./generation-alt-gate');
 
 function isDiscordVerified(user) {
   return !!(user && user.discordVerifiedAt);
@@ -14,21 +17,6 @@ function accountNotVerifiedReply(interaction, appUrl) {
       `❌ **Verification Required**: Complete Discord verification in <#1532910591264423988> before using generation commands.\n` +
       `Alt accounts cannot verify or generate. One person = one account.`,
     flags: 64, // Ephemeral
-  });
-}
-
-async function findVerifiedAltOnSameNetwork(prisma, user) {
-  if (!user?.id) return null;
-  const ip = String(user.verifyIp || user.lastIp || '').trim();
-  if (!ip) return null;
-
-  return prisma.user.findFirst({
-    where: {
-      id: { not: user.id },
-      discordVerifiedAt: { not: null },
-      OR: [{ verifyIp: ip }, { lastIp: ip }],
-    },
-    select: { id: true, username: true, discordId: true },
   });
 }
 
@@ -49,13 +37,13 @@ async function assertGenerationAccess(prisma, user, { interaction, verifiedRoleI
     return { ok: false, code: 'BANNED', message: 'Your account is suspended from OpenSteam services.' };
   }
 
-  const alt = await findVerifiedAltOnSameNetwork(prisma, user);
+  const alt = await findVerifiedAltForGeneration(prisma, user);
   if (alt) {
     return {
       ok: false,
       code: 'ALT_NETWORK',
       message:
-        `Alt account blocked. Another verified account (**${alt.username}**) already uses this network. ` +
+        `Alt account blocked. Another verified account (**${alt.username}**) matched on ${alt.matchType}. ` +
         'Use your original account — alt accounts cannot generate.',
       alt,
     };
@@ -78,6 +66,6 @@ async function assertGenerationAccess(prisma, user, { interaction, verifiedRoleI
 module.exports = {
   isDiscordVerified,
   accountNotVerifiedReply,
-  findVerifiedAltOnSameNetwork,
+  findVerifiedAltForGeneration,
   assertGenerationAccess,
 };

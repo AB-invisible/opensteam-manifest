@@ -14,6 +14,10 @@ import { Plan } from '@prisma/client'
 import { sendWebhook } from '@/app/lib/webhooks'
 import { resolveAndUpsertManifestName } from '@/app/lib/manifest-name-resolve'
 import { assertDiscordGuildAccess } from '@/app/lib/discord-guild-restrictions'
+import {
+  buildGenerationAltBlockMessage,
+  findVerifiedAltForGeneration,
+} from '@/app/lib/generation-alt-gate'
 
 /**
  * POST /api/manifests/generate
@@ -87,25 +91,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const sharedIp = (user.verifyIp || user.lastIp || '').trim()
-    if (sharedIp) {
-      const altOnNetwork = await prisma.user.findFirst({
-        where: {
-          id: { not: user.id },
-          discordVerifiedAt: { not: null },
-          OR: [{ verifyIp: sharedIp }, { lastIp: sharedIp }],
+    const altMatch = await findVerifiedAltForGeneration(user)
+    if (altMatch) {
+      return NextResponse.json(
+        {
+          error: buildGenerationAltBlockMessage(altMatch),
+          code: 'ALT_NETWORK',
         },
-        select: { username: true },
-      })
-      if (altOnNetwork) {
-        return NextResponse.json(
-          {
-            error: `Alt account blocked. Another verified account (${altOnNetwork.username}) already uses this network.`,
-            code: 'ALT_NETWORK',
-          },
-          { status: 403, headers },
-        )
-      }
+        { status: 403, headers },
+      )
     }
 
     // ── Daily limit check ────────────────────────────────────────────────────
