@@ -225,15 +225,23 @@ export async function authenticateApiKey(
   }
 
   // 2. Velocity (burst + hourly) and 3. Daily plan quota — independent checks.
+  // Read-only routes (stats, activate, onlinefix catalog) skip velocity + usage logging.
   const [rateLimit, dailyQuota] = await Promise.all([
-    checkVelocityRateLimit(
-      keyRecord.userId,
-      keyRecord.rateLimit,
-      maxBurst,
-      ip,
-      appId || undefined,
-      (keyRecord.user as any).securityBypass
-    ),
+    options.skipUsage
+      ? Promise.resolve({
+          allowed: true,
+          remaining: maxBurst,
+          limit: maxBurst,
+          resetAt: Math.ceil((Date.now() + 3600000) / 1000),
+        } satisfies RateLimitResult)
+      : checkVelocityRateLimit(
+          keyRecord.userId,
+          keyRecord.rateLimit,
+          maxBurst,
+          ip,
+          appId || undefined,
+          (keyRecord.user as any).securityBypass
+        ),
     checkDailyApiQuota(keyRecord.userId, dailyLimit, { enforce: !options.skipUsage }),
   ])
 

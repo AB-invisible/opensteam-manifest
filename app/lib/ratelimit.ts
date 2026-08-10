@@ -127,6 +127,11 @@ export async function checkVelocityRateLimit(
     FROM api_usage u
     INNER JOIN api_keys k ON u."apiKeyId" = k.id
     WHERE k."userId" = ${userId}
+      AND (
+        u.endpoint LIKE '%/generate/%'
+        OR u.endpoint LIKE '%/bulk/generate'
+        OR u.endpoint = '/api/manifests/generate'
+      )
   `
   const usageAgg = usageAggRows[0]
   const hourlyCount = Number(usageAgg?.hourly_all ?? 0)
