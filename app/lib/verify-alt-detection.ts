@@ -85,6 +85,56 @@ export async function detectVerificationAlts(input: AltDetectionInput): Promise<
   }
 }
 
+export type ResolvedAltAccount = {
+  userId: string
+  username: string
+  discordId: string
+  inGuild: boolean
+}
+
+async function isDiscordGuildMember(
+  guildId: string,
+  discordId: string,
+  botToken: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`,
+      {
+        headers: { Authorization: `Bot ${botToken}` },
+        signal: AbortSignal.timeout(5000),
+      },
+    )
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/** Resolve matched platform users and whether they are currently in the verify guild. */
+export async function resolveAltMatchedAccounts(
+  altMatchedUserIds: string[],
+  guildId: string,
+  botToken: string | null | undefined,
+): Promise<ResolvedAltAccount[]> {
+  if (altMatchedUserIds.length === 0) return []
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: altMatchedUserIds } },
+    select: { id: true, username: true, discordId: true },
+  })
+
+  const token = botToken?.trim()
+  return Promise.all(
+    users.map(async (user) => ({
+      userId: user.id,
+      username: user.username,
+      discordId: user.discordId,
+      inGuild: token ? await isDiscordGuildMember(guildId, user.discordId, token) : false,
+    })),
+  )
+}
+
 export function discordSnowflakeToDate(snowflake: string): Date {
   try {
     return new Date(Number(BigInt(snowflake) >> BigInt(22)) + 1420070400000)

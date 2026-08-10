@@ -113,10 +113,27 @@ export function evaluateVerificationAltBlock(
   }
 }
 
-export function buildAltBlockMessage(flags: string[]): string {
+export function buildAltBlockMessage(
+  flags: string[],
+  matchedAccounts?: Array<{ username: string; discordId: string; inGuild?: boolean }>,
+): string {
+  const inGuild = matchedAccounts?.filter((account) => account.inGuild) ?? []
+  if (inGuild.length > 0) {
+    const mentions = inGuild.map((account) => `<@${account.discordId}> (${account.username})`).join(', ')
+    return `Alt account blocked. You already have an account in this server: ${mentions}. Use that account — alt accounts cannot verify.`
+  }
+
   const labels = flags.map((flag) => ALT_FLAG_LABELS[flag] || flag.replace(/_/g, ' '))
   const reason = labels.length ? ` Reason: ${labels.join(', ')}.` : ''
-  return `Verification paused because this account matches an existing OpenSteam account.${reason} Staff must approve this verification before it can continue.`
+
+  if (matchedAccounts?.length) {
+    const names = matchedAccounts
+      .map((account) => `**${account.username}** (\`${account.discordId}\`)`)
+      .join(', ')
+    return `Alt account blocked. This matches existing OpenSteam account(s): ${names}. Alt accounts cannot verify.${reason}`
+  }
+
+  return `Verification blocked because this account matches an existing OpenSteam account.${reason} Staff must approve this verification before it can continue.`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

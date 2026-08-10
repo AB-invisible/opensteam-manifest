@@ -18,6 +18,8 @@ async function main() {
     ['DISCORD_UNVERIFIED_ROLE_ID', '1532919070473584840', false],
     ['DISCORD_VERIFIED_ROLE_ID', '1532912441954926603', false],
     ['DISCORD_ALERTS_CHANNEL_ID', '1536150448942219345', false],
+    ['DISCORD_VERIFY_ALT_BLOCK_MODE', 'any', false],
+    ['DISCORD_VERIFY_ALT_BLOCK_FLAGS', 'ip_match,fingerprint_match,email_match,friend_fingerprint_match,friend_of_banned', false],
   ];
 
   for (const [key, value, isSecret] of pairs) {

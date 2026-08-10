@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/app/lib/prisma'
 import { loadVerificationSession, writeVerificationAudit } from '@/app/lib/discord-verify-session'
 import { checkVerifyFailureSpike } from '@/app/lib/verify-funnel'
-import { detectVerificationAlts, discordSnowflakeToDate } from '@/app/lib/verify-alt-detection'
+import { detectVerificationAlts, discordSnowflakeToDate, resolveAltMatchedAccounts } from '@/app/lib/verify-alt-detection'
 import {
   extractFriendDiscordIds,
   isSocialSdkRelationshipsAvailable,
@@ -30,7 +30,7 @@ import { getPublicAppUrl } from '@/app/lib/public-app-url'
 import { getDiscordCdnAvatarUrl } from '@/app/lib/discord-avatar'
 import { clearWebSessionRevoke, markWebLogin } from '@/app/lib/web-session-revoke'
 import { notifyVerificationSuccess } from '@/app/lib/discord-verify-success-notify'
-import { notifyVerificationBlocked } from '@/app/lib/discord-verify-blocked-notify'
+import { notifyVerificationAltBlocked, notifyVerificationBlocked } from '@/app/lib/discord-verify-blocked-notify'
 import { checkVerificationBlacklist } from '@/app/lib/verification-blacklist'
 import {
   buildAltBlockMessage,
@@ -237,12 +237,20 @@ export async function POST(request: NextRequest) {
   const altBlock = evaluateVerificationAltBlock(altResult, altPolicy)
   const altReview = getVerificationAltReviewState(session.riskFlags)
   const altApproved = altReview?.status === 'approved'
-  if (altBlock.blocked && !altApproved) {
-    const altAccounts = await prisma.user.findMany({
-      where: { id: { in: altResult.altMatchedUserIds } },
-      select: { username: true, discordId: true },
-    })
-    const message = buildAltBlockMessage(altBlock.blockedFlags)
+  const verifyConfig = await getDiscordVerifyConfig()
+  const resolvedAltAccounts = await resolveAltMatchedAccounts(
+    altResult.altMatchedUserIds,
+    session.guildId,
+    verifyConfig.botToken,
+  )
+  const hasInGuildAlt = resolvedAltAccounts.some((account) => account.inGuild)
+  const shouldBlockAlt =
+    altResult.altMatchedUserIds.length > 0 &&
+    !altApproved &&
+    (altBlock.blocked || hasInGuildAlt)
+
+  if (shouldBlockAlt) {
+    const message = buildAltBlockMessage(altBlock.blockedFlags, resolvedAltAccounts)
     const pendingAltReview = {
       status: 'pending' as const,
       requestedAt: altReview?.requestedAt || new Date().toISOString(),
@@ -295,20 +303,30 @@ export async function POST(request: NextRequest) {
       discordId: profile.id,
       username: profile.username,
       altMatchedUserIds: altResult.altMatchedUserIds,
-      flags: altBlock.blockedFlags,
+      flags: altBlock.blockedFlags.length > 0 ? altBlock.blockedFlags : altResult.flags,
       ip,
       blocked: true,
     })
+
+    void notifyVerificationAltBlocked({
+      discordId: profile.id,
+      message,
+      matchedAccounts: resolvedAltAccounts,
+    }).catch((err) => console.error('[Verify] alt blocked notify failed:', err))
 
     return NextResponse.json(
       {
         code: 'ALT_BLOCKED',
         error: message,
-        reviewPending: true,
+        reviewPending: !hasInGuildAlt,
         altFlags: altResult.flags,
         blockedFlags: altBlock.blockedFlags,
-        altDetected: altAccounts.length > 0,
-        altAccounts: altAccounts.map((u) => ({ username: u.username, discordId: u.discordId })),
+        altDetected: resolvedAltAccounts.length > 0,
+        altAccounts: resolvedAltAccounts.map((account) => ({
+          username: account.username,
+          discordId: account.discordId,
+          inGuild: account.inGuild,
+        })),
       },
       { status: 403 },
     )

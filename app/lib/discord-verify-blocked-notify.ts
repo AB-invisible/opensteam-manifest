@@ -32,3 +32,31 @@ export async function notifyVerificationBlocked(input: {
     timestamp: new Date().toISOString(),
   })
 }
+
+export async function notifyVerificationAltBlocked(input: {
+  discordId: string
+  message: string
+  matchedAccounts?: Array<{ username: string; discordId: string; inGuild?: boolean }>
+}): Promise<boolean> {
+  const inGuild = input.matchedAccounts?.filter((account) => account.inGuild) ?? []
+  const mentionLine =
+    inGuild.length > 0
+      ? inGuild.map((account) => `<@${account.discordId}> (${account.username})`).join(', ')
+      : null
+
+  const description = [
+    input.message,
+    mentionLine ? `\n\nMatched server account(s): ${mentionLine}` : '',
+    '\n\nUse your existing account — alt accounts cannot verify on OpenSteam.',
+  ]
+    .join('')
+    .trim()
+
+  return sendBotDM(input.discordId, '', {
+    title: '🚫 Alt Account Blocked',
+    description,
+    color: 0xef4444,
+    footer: { text: 'OpenSteam Verification' },
+    timestamp: new Date().toISOString(),
+  })
+}

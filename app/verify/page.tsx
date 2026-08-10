@@ -32,7 +32,7 @@ export default function VerifyPage() {
   const [completeError, setCompleteError] = useState<string | null>(null)
   const [blockedHits, setBlockedHits] = useState<Array<{ kind: string; reason: string; label?: string; guildName?: string; discordId?: string; guildId?: string }>>([])
   const [done, setDone] = useState(false)
-  const [altAccounts, setAltAccounts] = useState<{ username: string; discordId: string }[]>([])
+  const [altAccounts, setAltAccounts] = useState<{ username: string; discordId: string; inGuild?: boolean }[]>([])
 
   const loadSession = useCallback(async () => {
     if (!signed) {
@@ -256,6 +256,11 @@ export default function VerifyPage() {
                             <strong>{account.username}</strong>{' '}
                             <span className="font-mono text-red-200/70">({account.discordId})</span>
                           </p>
+                          {account.inGuild ? (
+                            <p className="text-red-200/80 mt-1">
+                              This account is already in the OpenSteam Discord server. Switch to that account — alts cannot verify.
+                            </p>
+                          ) : null}
                         </div>
                       ))}
                     </div>

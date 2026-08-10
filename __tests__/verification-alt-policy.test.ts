@@ -57,5 +57,11 @@ describe('verification alt block policy', () => {
 
   it('builds a user-facing block message', () => {
     expect(buildAltBlockMessage(['fingerprint_match'])).toContain('shared browser/device fingerprint')
+    expect(
+      buildAltBlockMessage(['ip_match'], [{ username: 'main', discordId: '111', inGuild: true }]),
+    ).toContain('<@111>')
+    expect(
+      buildAltBlockMessage(['ip_match'], [{ username: 'main', discordId: '111', inGuild: true }]),
+    ).toContain('already have an account in this server')
   })
 })
