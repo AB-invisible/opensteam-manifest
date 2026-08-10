@@ -224,10 +224,58 @@ async function getOnlineFixDownloadUrl(game) {
   if (!game) return null;
 
   const key = await onlineFixKeyForFileName(game.fileName);
-  const s3Url = await getOnlineFixS3Url(key);
-  if (s3Url) return s3Url;
+  if (key && (await checkS3FileExists(key))) {
+    const s3Url = await getOnlineFixS3Url(key);
+    if (s3Url) return s3Url;
+  }
 
-  return game.fileUrl || null;
+  if (game.fileUrl && String(game.fileUrl).startsWith('http')) {
+    return game.fileUrl;
+  }
+
+  return null;
+}
+
+async function streamOnlineFixArchive(game, { maxBytes = 512 * 1024 * 1024 } = {}) {
+  if (!game?.fileName) return null;
+
+  const fromS3 = await downloadOnlineFixFromS3(game, { maxBytes });
+  if (fromS3?.buffer?.length) {
+    return {
+      buffer: fromS3.buffer,
+      fileName: fromS3.fileName || game.fileName,
+      contentLength: fromS3.contentLength || fromS3.buffer.length,
+      source: 's3',
+    };
+  }
+
+  const remoteUrl = game.fileUrl && String(game.fileUrl).startsWith('http') ? game.fileUrl : null;
+  if (!remoteUrl) return null;
+
+  const axios = require('axios');
+  const res = await axios.get(remoteUrl, {
+    responseType: 'arraybuffer',
+    timeout: 120000,
+    maxContentLength: maxBytes,
+    maxBodyLength: maxBytes,
+    validateStatus: () => true,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) OpenSteam/1.0',
+      Accept: '*/*',
+    },
+  });
+
+  if (res.status < 200 || res.status >= 300 || !res.data) {
+    throw new Error(`Remote OnlineFix source returned HTTP ${res.status}`);
+  }
+
+  const buffer = Buffer.from(res.data);
+  return {
+    buffer,
+    fileName: game.fileName,
+    contentLength: buffer.length,
+    source: 'remote',
+  };
 }
 
 async function checkS3FileExists(key) {
@@ -610,6 +658,7 @@ module.exports = {
   mirrorOnlineFixToS3,
   getOnlineFixS3Url,
   getOnlineFixDownloadUrl,
+  streamOnlineFixArchive,
   downloadOnlineFixFromS3,
   checkS3FileExists,
   listOnlineFixObjects,

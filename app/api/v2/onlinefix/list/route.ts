@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
 
     const games = await prisma.onlineFixGame.findMany({
       select: {
+        id: true,
         name: true,
         fileName: true,
         fileSize: true,
@@ -48,15 +49,16 @@ export async function GET(request: NextRequest) {
 
     const enriched = games.map((game) => {
       const title = parseOnlineFixDisplayName(game.name, game.fileName)
-      const imageUrl =
-        game.imageUrl ||
-        (game.steamAppId ? steamHeaderImageUrl(game.steamAppId) : null)
+      const steamImage = game.steamAppId ? steamHeaderImageUrl(game.steamAppId) : null
+      const imageUrl = steamImage || game.imageUrl || null
 
       return {
         ...game,
         title,
         displayName: title,
+        downloadName: game.name,
         imageUrl,
+        headerImageUrl: steamImage || imageUrl,
       }
     })
 
