@@ -493,9 +493,14 @@ function getSiteHostLabel() {
   }
 }
 
+/** Must sign in on the website (NextAuth) before using generation commands. */
+function isWebLinked(user) {
+  return !!(user && user.webLoginAt);
+}
+
 function accountNotLinkedReply(interaction) {
   return interaction.reply({
-    content: '❌ **Could not register your account.** Try again in a moment or contact staff.',
+    content: `❌ **Account Not Linked**: Sign in with Discord at **${getGenAppUrl()}/** once before using generation commands.`,
     flags: MessageFlags.Ephemeral,
   });
 }
@@ -3781,6 +3786,10 @@ async function startBot() {
         return accountNotLinkedReply(interaction);
       }
 
+      if (!isWebLinked(user)) {
+        return accountNotLinkedReply(interaction);
+      }
+
       await interaction.deferReply();
 
       try {
@@ -4239,6 +4248,10 @@ async function startBot() {
         return accountNotLinkedReply(interaction);
       }
 
+      if (!isWebLinked(user)) {
+        return accountNotLinkedReply(interaction);
+      }
+
       if (user.isBanned) {
         return interaction.reply({ content: 'Your account is suspended from using OpenSteam services.', flags: MessageFlags.Ephemeral });
       }
@@ -4311,6 +4324,10 @@ async function startBot() {
       // 1. Resolve User
       const user = await getOrSyncUser(interaction.user);
       if (!user) {
+        return accountNotLinkedReply(interaction);
+      }
+
+      if (!isWebLinked(user)) {
         return accountNotLinkedReply(interaction);
       }
 
@@ -6181,6 +6198,10 @@ async function startBot() {
       // 1. Resolve User
       const user = await getOrSyncUser(interaction.user);
       if (!user) {
+        return accountNotLinkedReply(interaction);
+      }
+
+      if (!isWebLinked(user)) {
         return accountNotLinkedReply(interaction);
       }
 

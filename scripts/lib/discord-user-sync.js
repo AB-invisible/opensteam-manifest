@@ -2,7 +2,7 @@ const { PermissionFlagsBits } = require('discord.js');
 
 /**
  * Find or create a platform user from a Discord user object.
- * No website sign-in required — Discord identity is enough for bot commands.
+ * Generation commands still require a website sign-in (`webLoginAt`) before use.
  */
 async function getOrSyncDiscordUser(prisma, discordUser) {
   if (!discordUser?.id) return null;
