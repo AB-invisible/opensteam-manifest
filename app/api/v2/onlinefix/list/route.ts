@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
         id: true,
         name: true,
         fileName: true,
+        fileUrl: true,
         fileSize: true,
         imageUrl: true,
         sourceUrl: true,
@@ -59,6 +60,7 @@ export async function GET(request: NextRequest) {
         downloadName: game.name,
         imageUrl,
         headerImageUrl: steamImage || imageUrl,
+        directDownloadUrl: game.fileUrl || null,
       }
     })
 
