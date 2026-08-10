@@ -119,7 +119,6 @@ async function syncOnlineFixIndexFromOfficialSite({ prismaClient, maxPages } = {
     await db.onlineFixGame.update({
       where: { id: existing.id },
       data: {
-        name: official.title,
         imageUrl: official.imageUrl || existing.imageUrl,
         sourceUrl: official.pageUrl,
         indexedAt: new Date(),
