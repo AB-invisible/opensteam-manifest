@@ -1,3 +1,4 @@
+import { countDailyBillableGenerations } from './ratelimit'
 import { prisma } from './prisma'
 
 export const HOSTED_GEN_SOURCE_BRANDED = 'discord-hosted'
@@ -30,16 +31,9 @@ export async function countHostedBotUsageToday(
   })
 }
 
-/** Account-wide API usage today — matches checkDailyApiQuota (non-429). */
+/** Account-wide successful manifest generations today — matches checkDailyApiQuota. */
 export async function countUserApiUsageToday(userId: string): Promise<number> {
-  const { todayStart, todayEnd } = utcDayBounds()
-  return prisma.apiUsage.count({
-    where: {
-      apiKey: { userId },
-      createdAt: { gte: todayStart, lte: todayEnd },
-      status: { not: 429 },
-    },
-  })
+  return countDailyBillableGenerations(userId)
 }
 
 export async function recordHostedBotGeneration(input: {

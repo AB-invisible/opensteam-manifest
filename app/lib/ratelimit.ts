@@ -262,7 +262,10 @@ const billableGenerationEndpointFilter = {
   ],
 } as const
 
-/** Manifest generations consumed today (billable API calls only). */
+/** HTTP status recorded on api_usage when a manifest was actually delivered. */
+export const BILLABLE_GENERATION_HTTP_STATUS = 200
+
+/** Manifest generations consumed today (successful generate calls only). */
 export async function countDailyBillableGenerations(userId: string): Promise<number> {
   const todayStart = new Date()
   todayStart.setUTCHours(0, 0, 0, 0)
@@ -271,7 +274,7 @@ export async function countDailyBillableGenerations(userId: string): Promise<num
     where: {
       apiKey: { userId },
       createdAt: { gte: todayStart },
-      status: { not: 429 },
+      status: BILLABLE_GENERATION_HTTP_STATUS,
       ...billableGenerationEndpointFilter,
     },
   })

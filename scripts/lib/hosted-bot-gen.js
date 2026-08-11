@@ -284,14 +284,19 @@ function getUtcDayBounds() {
   return { todayStart, todayEnd };
 }
 
-/** Matches checkDailyApiQuota — all non-429 API calls today for the account. */
+/** Matches checkDailyApiQuota — successful manifest generations today for the account. */
 async function countUserApiUsageToday(prisma, userId) {
-  const { todayStart, todayEnd } = getUtcDayBounds();
+  const { todayStart } = getUtcDayBounds();
   return prisma.apiUsage.count({
     where: {
       apiKey: { userId },
-      createdAt: { gte: todayStart, lte: todayEnd },
-      status: { not: 429 },
+      createdAt: { gte: todayStart },
+      status: 200,
+      OR: [
+        { endpoint: { contains: '/generate/' } },
+        { endpoint: { endsWith: '/bulk/generate' } },
+        { endpoint: '/api/manifests/generate' },
+      ],
     },
   });
 }

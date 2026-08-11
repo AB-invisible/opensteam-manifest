@@ -29,6 +29,7 @@ export async function GET(
 
   // ── 2. Validate app ID ────────────────────────────────────────────────────
   if (!appId || !/^\d+$/.test(appId)) {
+    enrichLog(auth.usageLogId, 400, appId)
     return NextResponse.json(
       { error: 'Invalid Steam App ID — must be numeric.' },
       { status: 400, headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) }
@@ -67,11 +68,13 @@ export async function GET(
       if (!hasRyuuAccess) {
         if (!pubBase) {
           console.error('[apiKey/generate] NEXT_PUBLIC_APP_URL is required in production')
+          enrichLog(auth.usageLogId, 500, appId)
           return NextResponse.json(
             { error: 'Server configuration error.' },
             { status: 500, headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) }
           )
         }
+        enrichLog(auth.usageLogId, 403, appId)
         return NextResponse.json(
           {
             error: 'Manifest not yet available for this App ID.',
@@ -135,6 +138,7 @@ export async function GET(
     }
 
     if (!manifest) {
+      enrichLog(auth.usageLogId, 500, appId)
       return NextResponse.json(
         { error: 'Manifest could not be resolved.' },
         { status: 500, headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) }
@@ -155,18 +159,18 @@ export async function GET(
       console.log(`[API Generate] Serving ${appId} from storage cache (S3/Volume)`)
     }
 
-    enrichLog(auth.usageLogId, 200, appId, manifest.name)
-
     if (format === 'zip') {
       const cleanedBuffer = await prepareCleanManifestZip(appId)
 
       if (!cleanedBuffer) {
+        enrichLog(auth.usageLogId, 404, appId)
         return NextResponse.json(
           { error: `Zip file not found for app ID: ${appId}` },
           { status: 404, headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) }
         )
       }
 
+      enrichLog(auth.usageLogId, 200, appId, manifest.name)
       prisma.manifest.update({ where: { id: manifest.id }, data: { downloads: { increment: 1 } } }).catch(() => {})
       const safeName = manifest.name.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 64)
 
@@ -181,12 +185,14 @@ export async function GET(
 
     if (!pubBase) {
       console.error('[apiKey/generate] NEXT_PUBLIC_APP_URL is required in production')
+      enrichLog(auth.usageLogId, 500, appId)
       return NextResponse.json(
         { error: 'Server configuration error.' },
         { status: 500, headers: apiHeaders(auth.rateLimit, auth.dailyQuota, request.headers.get('Origin')) }
       )
     }
 
+    enrichLog(auth.usageLogId, 200, appId, manifest.name)
     return NextResponse.json(
       {
         success: true,
